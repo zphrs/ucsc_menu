@@ -1,37 +1,43 @@
+use super::error::Error;
 use bitflags::bitflags;
 
 pub struct AllergenInfo(AllergenFlags);
 
 impl AllergenInfo {
     // should pass in the allergen image elements
-    pub fn from_html_elements(elements: scraper::element_ref::Select) -> Self {
+    pub fn from_html_elements(elements: scraper::element_ref::Select) -> Result<Self, Error> {
         // iterate over the allergen image elements and continuously oring the allergen flags
         // use reduce to or the allergen flags
         let allergen_flags = elements
-            .map(|element| {
-                let img_url = element.value().attr("src").unwrap();
-                Self::img_url_to_allergen(img_url)
-            })
-            .reduce(|acc, flags| acc | flags)
-            .unwrap_or(AllergenFlags::empty());
-        Self(allergen_flags)
+            .filter_map(|element| element.value().attr("src"))
+            .map(|img_url| Self::img_url_to_allergen(img_url));
+        // if there is an error, return the error via a for loop
+        let mut acc = AllergenFlags::empty();
+        for allergen_flag in allergen_flags {
+            acc |= allergen_flag?;
+        }
+        Ok(Self(acc))
     }
-    fn img_url_to_allergen(img_url: &str) -> AllergenFlags {
+    fn img_url_to_allergen(img_url: &str) -> Result<AllergenFlags, Error> {
         // verify that the image url starts with "LegendImages/"
         const PREFIX: &str = "LegendImages/";
         if !img_url.starts_with(PREFIX) {
-            return AllergenFlags::empty();
+            return Err(Error::html_parse_error(
+                "Allergen image url does not start with LegendImages/",
+            ));
         }
         // chop off the "LegendImages/" prefix
         let img_url = &img_url[PREFIX.len()..];
         // verify that the image url ends with ".gif"
         const SUFFIX: &str = ".gif";
         if !img_url.ends_with(SUFFIX) {
-            return AllergenFlags::empty();
+            return Err(Error::html_parse_error(
+                "Allergen image url does not end with .gif",
+            ));
         }
         // chop off the ".gif" suffix
         let img_url = &img_url[..img_url.len() - SUFFIX.len()];
-        match img_url {
+        let res = match img_url {
             "eggs" => AllergenFlags::Egg,
             "fish" => AllergenFlags::Fish,
             "gluten" => AllergenFlags::GlutenFriendly,
@@ -47,8 +53,9 @@ impl AllergenInfo {
             "halal" => AllergenFlags::Halal,
             "shellfish" => AllergenFlags::Shellfish,
             "sesame" => AllergenFlags::Sesame,
-            _ => AllergenFlags::empty(),
-        }
+            _ => Err(Error::html_parse_error("Unknown allergen image url"))?,
+        };
+        Ok(res)
     }
     pub fn is_all(&self) -> bool {
         self.0.is_all()
@@ -84,6 +91,12 @@ bitflags! {
 #[cfg(test)]
 
 mod tests {
+    use std::sync::OnceLock;
+
+    use scraper::Selector;
+
+    use crate::get_or_init_selector;
+
     use super::*;
     const HTML: &str = r#"
 <tbody><tr>
@@ -144,7 +157,8 @@ mod tests {
         let allergen_info = AllergenInfo::from_html_elements(
             doc.root_element()
                 .select(&scraper::Selector::parse("img").unwrap()),
-        );
+        )
+        .expect("The example html should be valid");
         assert!(allergen_info.0.is_all());
     }
 
@@ -154,11 +168,13 @@ mod tests {
         // source: https://nutrition.sa.ucsc.edu/allergenfilter.aspx?strcurlocationnum=40
 
         let doc = scraper::Html::parse_document(HTML);
-        let selector = scraper::Selector::parse("img").unwrap();
+        static SELECTOR: OnceLock<Selector> = OnceLock::new();
+        let selector = get_or_init_selector!(SELECTOR, "img");
         let mut all_allergen_flags = AllergenFlags::empty();
         for element in doc.select(&selector) {
-            let img_url = element.value().attr("src").unwrap();
-            let allergen_flags = AllergenInfo::img_url_to_allergen(img_url);
+            let img_url = element.value().attr("src").unwrap(); // all img elements should have a src attribute
+            let allergen_flags = AllergenInfo::img_url_to_allergen(img_url)
+                .expect("All img urls in this example should be valid");
             // ensure that the allergen_flags aren't empty
             println!("img_url: {}", img_url);
             assert!(!allergen_flags.is_empty());

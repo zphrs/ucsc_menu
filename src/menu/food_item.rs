@@ -32,7 +32,7 @@ impl<'a> FoodItem<'a> {
         static ALLERGEN_INFO_SELECTOR: OnceLock<Selector> = OnceLock::new();
         let allergen_info_selector = get_or_init_selector!(ALLERGEN_INFO_SELECTOR, "td > img");
         let allergen_info =
-            AllergenInfo::from_html_elements(element.select(&allergen_info_selector));
+            AllergenInfo::from_html_elements(element.select(&allergen_info_selector))?;
 
         // try to get price with css selector .shortmenuprices > span
         static PRICE_SELECTOR: OnceLock<Selector> = OnceLock::new();
@@ -65,7 +65,7 @@ mod tests {
     fn test_food_item_from_html_element() {
         // source: https://nutrition.sa.ucsc.edu/menuSamp.asp?locationNum=40&locationName=Colleges+Nine+%26+Ten&sName=&naFlag=
         // load the html file
-        let html = std::fs::read_to_string("./src/html_examples/food_item.html").unwrap();
+        let html = std::fs::read_to_string("./src/html_examples/food_item.html").unwrap(); // file system should be reliable
         let doc = scraper::Html::parse_document(&html);
         let food_item =
             FoodItem::from_html_element(doc.root_element(), "Breakfast", MealType::Breakfast)
