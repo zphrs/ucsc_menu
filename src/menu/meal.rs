@@ -8,7 +8,7 @@ use super::{error::Error, food_item::FoodItem};
 
 use std::sync::OnceLock;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum MealType {
     Breakfast,
     Lunch,
@@ -27,9 +27,10 @@ impl<'a> Meal<'a> {
     pub fn from_html_element(element: scraper::ElementRef<'a>) -> Result<Self, Error> {
         // example html div element at ./html_examples/meal.html
         static MEAL_TYPE_SELECTOR: OnceLock<Selector> = OnceLock::new();
-        let meal_type_selector =
-            get_or_init_selector!(MEAL_TYPE_SELECTOR, ".shortmenutitles > span");
+        let meal_type_selector = get_or_init_selector!(MEAL_TYPE_SELECTOR, ".shortmenucats > span");
         let meal_type = text_from_selection(&meal_type_selector, element, "meal", "meal type")?;
+        // trim off first and last three characters
+        let meal_type = &meal_type[3..meal_type.len() - 3];
         let meal_type = match meal_type {
             "Breakfast" => MealType::Breakfast,
             "Lunch" => MealType::Lunch,
@@ -92,5 +93,21 @@ impl<'a> MealSection<'a> {
             let out = FoodItem::from_html_element(element, category, meal_type)?;
             Ok(Some(out))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_meal_parse() {
+        // load html from "./html_examples/meal.html"
+        let html = fs::read_to_string("./src/html_examples/meal.html").unwrap();
+        let document = scraper::Html::parse_document(&html);
+        let meal = Meal::from_html_element(document.root_element())
+            .expect("The example html should be valid");
+        assert_eq!(meal.meal_type, MealType::Breakfast);
     }
 }
