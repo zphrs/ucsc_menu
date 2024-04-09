@@ -100,7 +100,7 @@ impl<'a> Iterator for SectionIterator<'a> {
         if elements.peek().is_none() {
             return None;
         }
-        let section = MealSection::from_html_elements(&mut elements, self.meal_type);
+        let section = MealSection::from_html_elements(&mut elements);
         Some(section)
     }
 }
@@ -113,10 +113,7 @@ pub struct MealSection<'a> {
 
 impl<'a> MealSection<'a> {
     // takes in an iterator of tr elements of a specific meal and consumes the elements to create a MealSection
-    pub fn from_html_elements(
-        elements: &mut Peekable<Select<'a, 'a>>,
-        meal_type: MealType,
-    ) -> Result<Self, Error> {
+    pub fn from_html_elements(elements: &mut Peekable<Select<'a, 'a>>) -> Result<Self, Error> {
         static MEAL_NAME_SELECTOR: OnceLock<Selector> = OnceLock::new();
         let section_name_selector =
             get_or_init_selector!(MEAL_NAME_SELECTOR, ".shortmenucats > span");
@@ -136,7 +133,7 @@ impl<'a> MealSection<'a> {
             if element.select(&section_name_selector).next().is_some() {
                 break;
             }
-            if let Some(food_item) = Self::handle_element(*element, meal_type, name)? {
+            if let Some(food_item) = Self::handle_element(*element)? {
                 food_items.push(food_item);
             }
             elements.next();
@@ -144,18 +141,14 @@ impl<'a> MealSection<'a> {
         Ok(MealSection { name, food_items })
     }
 
-    fn handle_element(
-        element: scraper::ElementRef<'a>,
-        meal_type: MealType,
-        category: &'a str,
-    ) -> Result<Option<FoodItem<'a>>, Error> {
+    fn handle_element(element: scraper::ElementRef<'a>) -> Result<Option<FoodItem<'a>>, Error> {
         static SECTION_NAME_SELECTOR: OnceLock<Selector> = OnceLock::new();
         let section_name_selector =
             get_or_init_selector!(SECTION_NAME_SELECTOR, ".shortmenucats > span");
         if element.select(&section_name_selector).next().is_some() {
             return Ok(None);
         } else {
-            let out = FoodItem::from_html_element(element, category, meal_type)?;
+            let out = FoodItem::from_html_element(element)?;
             Ok(Some(out))
         }
     }
