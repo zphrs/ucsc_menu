@@ -4,5 +4,3 @@ mod food_item;
 mod get_or_init_selector;
 mod meal;
 mod text_from_selection;
-
-struct Menu {}
