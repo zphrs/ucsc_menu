@@ -1,6 +1,7 @@
 use super::error::Error;
 use bitflags::bitflags;
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct AllergenInfo(AllergenFlags);
 
 impl AllergenInfo {
@@ -69,6 +70,7 @@ impl AllergenInfo {
 }
 
 bitflags! {
+    #[derive(Debug, PartialEq, Eq)]
     pub struct AllergenFlags: u16 {
         const Egg = 0b0000000000000001;
         const Fish = 0b0000000000000010;

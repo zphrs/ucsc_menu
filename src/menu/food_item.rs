@@ -7,14 +7,21 @@ use rusty_money::{iso, Money};
 use scraper::Selector;
 use std::sync::OnceLock;
 
+#[derive(Debug)]
 pub struct FoodItem<'a> {
     name: &'a str,
     allergen_info: AllergenInfo,
-    meal_type: MealType,
-    // too many categories to enumerate - custom category per location and varies from day to day
-    category: &'a str,
     price: Option<Money<'a, iso::Currency>>, // in cents
 }
+
+impl PartialEq for FoodItem<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        // we ignore meal_type, category and price intentionally in checking equality
+        self.name == other.name && self.allergen_info == other.allergen_info
+    }
+}
+
+impl Eq for FoodItem<'_> {}
 
 impl<'a> FoodItem<'a> {
     pub fn from_html_element(
@@ -40,8 +47,13 @@ impl<'a> FoodItem<'a> {
         let price_element = element.select(&price_selector).next();
         let price = if let Some(price_element) = price_element {
             let price: &str = get_inner_text(price_element, "price")?; // will look like "$5.00"
-            let price = &price[1..]; // remove the dollar sign
-            Some(Money::from_str(price, iso::USD)?)
+                                                                       // if price is equal to &nbsp; then return None
+            if price == "\u{00A0}" {
+                None
+            } else {
+                let price = &price[1..]; // remove the dollar sign
+                Some(Money::from_str(price, iso::USD)?)
+            }
         } else {
             None
         };
@@ -49,8 +61,6 @@ impl<'a> FoodItem<'a> {
         Ok(Self {
             name,
             allergen_info,
-            meal_type,
-            category,
             price,
         })
     }
