@@ -1,6 +1,7 @@
-use super::{allergens::AllergenInfo, error::Error};
+use super::allergens::AllergenInfo;
 use crate::get_or_init_selector;
-use crate::menu::text_from_selection::{get_inner_text, text_from_selection};
+use crate::parse::Error;
+use crate::parse::text_from_selection::{get_inner_text, text_from_selection};
 use rusty_money::{iso, Money};
 use scraper::Selector;
 use std::sync::OnceLock;
@@ -63,13 +64,13 @@ impl<'a> FoodItem<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::menu::allergens::AllergenFlags;
+    use crate::parse::daily_menu::allergens::AllergenFlags;
 
     #[test]
     fn test_food_item_from_html_element() {
         // source: https://nutrition.sa.ucsc.edu/menuSamp.asp?locationNum=40&locationName=Colleges+Nine+%26+Ten&sName=&naFlag=
         // load the html file
-        let html = std::fs::read_to_string("./src/html_examples/food_item.html").unwrap(); // file system should be reliable
+        let html = std::fs::read_to_string("./src/parse/html_examples/daily_menu/food_item.html").unwrap(); // file system should be reliable
         let doc = scraper::Html::parse_document(&html);
         let food_item = FoodItem::from_html_element(doc.root_element())
             .expect("The example html should be valid");

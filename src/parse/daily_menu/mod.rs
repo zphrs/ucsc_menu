@@ -1,6 +1,6 @@
 mod allergens;
-pub mod error;
+mod daily_menu;
 mod food_item;
 mod get_or_init_selector;
 mod meal;
-mod text_from_selection;
+pub use daily_menu::DailyMenu;

@@ -2,9 +2,10 @@ use std::{iter::Peekable, vec};
 
 use scraper::{element_ref::Select, selectable::Selectable, Selector};
 
-use crate::{get_or_init_selector, menu::text_from_selection::text_from_selection};
+use crate::{get_or_init_selector, parse::text_from_selection::text_from_selection};
 
-use super::{error::Error, food_item::FoodItem};
+use super::food_item::FoodItem;
+use crate::parse::Error;
 
 use std::sync::OnceLock;
 
@@ -162,7 +163,7 @@ mod tests {
     #[test]
     fn test_meal_parse() {
         // load html from "./html_examples/meal.html"
-        let html = fs::read_to_string("./src/html_examples/meal.html").unwrap();
+        let html = fs::read_to_string("./src/parse/html_examples/daily_menu/meal.html").unwrap();
         let document = scraper::Html::parse_document(&html);
         let meal = Meal::from_html_element(document.root_element())
             .expect("The example html should be valid");

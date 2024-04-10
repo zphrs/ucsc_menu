@@ -1,4 +1,4 @@
-use super::error::Error;
+use super::Error;
 use scraper::{ElementRef, Selector};
 
 /// will panic if the selector does not match at least one element or if there is not exactly one text node inside the element

@@ -1,4 +1,4 @@
-use super::error::Error;
+use crate::parse::Error;
 use bitflags::bitflags;
 
 #[derive(Debug, PartialEq, Eq)]
