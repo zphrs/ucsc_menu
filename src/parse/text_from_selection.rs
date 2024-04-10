@@ -9,7 +9,7 @@ pub fn text_from_selection<'a>(
     child_label: &str,
 ) -> Result<&'a str, Error> {
     let parent = element
-        .select(&selector)
+        .select(selector)
         .next() // first match
         .ok_or_else(|| {
             Error::HTMLParseError(format!(
@@ -25,13 +25,14 @@ pub fn get_inner_text<'a>(element: ElementRef<'a>, text_label: &str) -> Result<&
     let text_node = text_iter.next().ok_or_else(|| {
         Error::TextNodeParseError(format!("{text_label} should have text inside."))
     })?;
-    // capitalize the first letter of the text node
-    let mut text_label = text_label.to_string();
-    text_label[..1].make_ascii_uppercase();
+
     if text_iter.next().is_some() {
-        Error::TextNodeParseError(format!(
+        // capitalize the first letter of the text node
+        let mut text_label = text_label.to_string();
+        text_label[..1].make_ascii_uppercase();
+        return Err(Error::TextNodeParseError(format!(
             "{text_label} element should only have one text node inside of it."
-        ));
-    };
+        )));
+    }
     Ok(text_node)
 }
