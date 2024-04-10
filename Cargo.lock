@@ -1714,6 +1714,7 @@ dependencies = [
  "rusty-money",
  "scraper",
  "tokio",
+ "url",
 ]
 
 [[package]]

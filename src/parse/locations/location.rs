@@ -1,5 +1,6 @@
 use crate::parse::daily_menu::DailyMenu;
 use crate::parse::Error;
+use url::Url;
 struct Location<'a> {
     name: &'a str,
     id: &'a str, // ex. 40 for 9/10
