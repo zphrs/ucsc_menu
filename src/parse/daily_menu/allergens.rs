@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::parse::Error;
 use bitflags::bitflags;
-use juniper::GraphQLObject;
+use juniper::graphql_object;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct AllergenInfo(AllergenFlags);
@@ -72,15 +72,22 @@ impl AllergenInfo {
     }
 }
 
+#[graphql_object]
+impl AllergenInfo {
+    pub fn allergens(&self) -> Vec<&'static str> {
+        self.into()
+    }
+}
+
 impl Display for AllergenInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-impl Into<Vec<&'static str>> for &AllergenInfo {
-    fn into(self) -> Vec<&'static str> {
-        (&self.0).into()
+impl From<&AllergenInfo> for Vec<&'static str> {
+    fn from(val: &AllergenInfo) -> Self {
+        (&val.0).into()
     }
 }
 
@@ -105,9 +112,9 @@ bitflags! {
     }
 }
 
-impl Into<Vec<&'static str>> for &AllergenFlags {
-    fn into(self) -> Vec<&'static str> {
-        static ALLERGENS: [(AllergenFlags, &'static str); 15] = [
+impl From<&AllergenFlags> for Vec<&'static str> {
+    fn from(val: &AllergenFlags) -> Self {
+        static ALLERGENS: [(AllergenFlags, &str); 15] = [
             (AllergenFlags::Egg, "Egg"),
             (AllergenFlags::Fish, "Fish"),
             (AllergenFlags::GlutenFriendly, "Gluten Friendly"),
@@ -129,7 +136,7 @@ impl Into<Vec<&'static str>> for &AllergenFlags {
             .filter_map(|(allergen_flag, allergen_name)| {
                 let flag = AllergenFlags::from_bits(allergen_flag.bits())
                     .expect("AllergenFlags should be valid");
-                if self.contains(flag) {
+                if val.contains(flag) {
                     Some(*allergen_name)
                 } else {
                     None
