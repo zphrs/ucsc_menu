@@ -2,6 +2,7 @@ use super::allergens::AllergenInfo;
 use crate::parse::text_from_selection::{get_inner_text, text_from_selection};
 use crate::parse::Error;
 use crate::static_selector;
+use juniper::graphql_object;
 use rusty_money::{iso, Money};
 
 #[derive(Debug)]
@@ -56,10 +57,19 @@ impl<'a> FoodItem<'a> {
     }
 }
 
+#[graphql_object]
+impl<'a> FoodItem<'a> {
+    pub fn allergens(&self) -> Vec<&'static str> {
+        (&self.allergen_info).into()
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use juniper::{EmptyMutation, EmptySubscription, RootNode};
+
     use super::*;
-    use crate::parse::daily_menu::allergens::AllergenFlags;
+    use crate::parse::daily_menu::allergens::{AllergenFlags, AllergenInfo};
 
     #[test]
     fn test_food_item_from_html_element() {
@@ -84,5 +94,20 @@ mod tests {
         );
 
         // double check meal type and category
+    }
+
+    #[test]
+    fn test_schema() {
+        let x = FoodItem {
+            name: "yummy meat",
+            allergen_info: AllergenInfo(AllergenFlags::Egg | AllergenFlags::Sesame),
+            price: None,
+        };
+        let rn = RootNode::new(
+            x,
+            EmptyMutation::<()>::new(),
+            EmptySubscription::<()>::new(),
+        );
+        panic!("{}", rn.as_sdl());
     }
 }

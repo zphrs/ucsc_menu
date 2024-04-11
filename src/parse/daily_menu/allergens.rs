@@ -5,7 +5,7 @@ use bitflags::bitflags;
 use juniper::graphql_object;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct AllergenInfo(AllergenFlags);
+pub struct AllergenInfo(pub(super) AllergenFlags);
 
 impl AllergenInfo {
     // should pass in the allergen image elements
@@ -69,13 +69,6 @@ impl AllergenInfo {
     }
     pub fn contains(&self, flags: AllergenFlags) -> bool {
         self.0.contains(flags)
-    }
-}
-
-#[graphql_object]
-impl AllergenInfo {
-    pub fn allergens(&self) -> Vec<&'static str> {
-        self.into()
     }
 }
 
@@ -156,6 +149,8 @@ impl Display for AllergenFlags {
 #[cfg(test)]
 
 mod tests {
+    use juniper::{EmptyMutation, EmptySubscription, RootNode};
+
     use crate::static_selector;
 
     use super::*;
