@@ -1,2 +1,5 @@
-mod location;
+mod location_data;
+mod location_meta;
 mod locations;
+
+pub use location_meta::LocationMeta;

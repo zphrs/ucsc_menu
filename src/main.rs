@@ -1,7 +1,7 @@
 #![allow(dead_code)] // TODO: remove this line once done with crate
 
+mod fetch;
 mod parse;
-mod scrape_menus;
 
 use std::{convert::Infallible, env, error::Error, net::SocketAddr, sync::Arc};
 

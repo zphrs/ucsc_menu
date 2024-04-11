@@ -1,17 +1,12 @@
-use futures::future;
-
 use crate::{parse::Error, static_selector};
 
-use super::location::Location;
-struct Locations<'a> {
-    locations: Vec<Location<'a>>,
+use super::location_meta::LocationMeta;
+struct Locations {
+    locations: Vec<LocationMeta>,
 }
 
-impl<'a> Locations<'a> {
-    pub(super) async fn from_html_element(
-        client: &reqwest::Client,
-        element: scraper::ElementRef<'a>,
-    ) -> Result<Self, Error> {
+impl Locations {
+    pub(super) fn from_html_element(element: scraper::ElementRef) -> Result<Self, Error> {
         static_selector!(LOCATION_CHOICES_SELECTOR <- "div#locationchoices");
         static_selector!(LOCATION_SELECTOR <- "li.locations");
 
@@ -21,12 +16,12 @@ impl<'a> Locations<'a> {
             ));
         };
 
-        let locations = future::try_join_all(
-            choices
-                .select(&LOCATION_SELECTOR)
-                .map(|x| Location::from_html_element(client, x)),
-        )
-        .await?;
+        let location_matches = choices.select(&LOCATION_SELECTOR);
+        let mut locations = Vec::with_capacity(location_matches.size_hint().0);
+        for location in location_matches {
+            let location_meta = LocationMeta::from_html_element(location)?;
+            locations.push(location_meta);
+        }
 
         Ok(Self { locations })
     }
@@ -37,19 +32,12 @@ mod tests {
     use super::*;
     use std::fs;
 
-    #[tokio::test]
-    async fn test_from_html_element() {
+    #[test]
+    fn test_from_html_element() {
         let html =
             fs::read_to_string("./src/parse/html_examples/locations/locations.html").unwrap();
         let document = scraper::Html::parse_document(&html);
-        let client = reqwest::Client::builder()
-            // TODO - my machine doesn't like the nutrition.sa cert on linux - i need to figure
-            // out if that's their issue or mine
-            .danger_accept_invalid_certs(true)
-            .build()
-            .expect("error building client");
-        let locations = Locations::from_html_element(&client, document.root_element())
-            .await
+        let locations = Locations::from_html_element(document.root_element())
             .expect("The example html should be valid");
         assert_eq!(locations.locations.len(), 14);
         println!("{:?}", locations.locations);

@@ -1,10 +1,8 @@
 use super::allergens::AllergenInfo;
-use crate::get_or_init_selector;
-use crate::parse::Error;
 use crate::parse::text_from_selection::{get_inner_text, text_from_selection};
+use crate::parse::Error;
+use crate::static_selector;
 use rusty_money::{iso, Money};
-use scraper::Selector;
-use std::sync::OnceLock;
 
 #[derive(Debug)]
 pub struct FoodItem<'a> {
@@ -27,19 +25,16 @@ impl<'a> FoodItem<'a> {
         // example html tr element at ./html_examples/food_item.html
 
         // get name with css selector .shortmenurecipes > span
-        static NAME_SELECTOR: OnceLock<Selector> = OnceLock::new();
-        let name_selector = get_or_init_selector!(NAME_SELECTOR, ".shortmenurecipes > span");
-        let name = text_from_selection(name_selector, element, "foodItem", "name")?.trim_end();
+        static_selector!(NAME_SELECTOR <- ".shortmenurecipes > span");
+        let name = text_from_selection(&NAME_SELECTOR, element, "foodItem", "name")?.trim_end();
         // get allergen info with css selector td > img
-        static ALLERGEN_INFO_SELECTOR: OnceLock<Selector> = OnceLock::new();
-        let allergen_info_selector = get_or_init_selector!(ALLERGEN_INFO_SELECTOR, "td > img");
+        static_selector!(ALLERGEN_INFO_SELECTOR <- "td > img");
         let allergen_info =
-            AllergenInfo::from_html_elements(element.select(&allergen_info_selector))?;
+            AllergenInfo::from_html_elements(element.select(&ALLERGEN_INFO_SELECTOR))?;
 
         // try to get price with css selector .shortmenuprices > span
-        static PRICE_SELECTOR: OnceLock<Selector> = OnceLock::new();
-        let price_selector = get_or_init_selector!(PRICE_SELECTOR, ".shortmenuprices > span");
-        let price_element = element.select(&price_selector).next();
+        static_selector!(PRICE_SELECTOR <- ".shortmenuprices > span");
+        let price_element = element.select(&PRICE_SELECTOR).next();
         let price = if let Some(price_element) = price_element {
             let price: &str = get_inner_text(price_element, "price")?; // will look like "$5.00"
                                                                        // if price is equal to &nbsp; then return None
@@ -70,7 +65,8 @@ mod tests {
     fn test_food_item_from_html_element() {
         // source: https://nutrition.sa.ucsc.edu/menuSamp.asp?locationNum=40&locationName=Colleges+Nine+%26+Ten&sName=&naFlag=
         // load the html file
-        let html = std::fs::read_to_string("./src/parse/html_examples/daily_menu/food_item.html").unwrap(); // file system should be reliable
+        let html =
+            std::fs::read_to_string("./src/parse/html_examples/daily_menu/food_item.html").unwrap(); // file system should be reliable
         let doc = scraper::Html::parse_document(&html);
         let food_item = FoodItem::from_html_element(doc.root_element())
             .expect("The example html should be valid");

@@ -1,13 +1,11 @@
 use std::{iter::Peekable, vec};
 
-use scraper::{element_ref::Select, selectable::Selectable, Selector};
+use scraper::{element_ref::Select, selectable::Selectable};
 
-use crate::{get_or_init_selector, parse::text_from_selection::text_from_selection};
+use crate::{parse::text_from_selection::text_from_selection, static_selector};
 
 use super::food_item::FoodItem;
 use crate::parse::Error;
-
-use std::sync::OnceLock;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum MealType {
@@ -28,22 +26,17 @@ pub struct Meal<'a> {
 impl<'a> Meal<'a> {
     pub fn from_html_element(element: scraper::ElementRef<'a>) -> Result<Self, Error> {
         // example html div element at ./html_examples/meal.html
-        static ROW_SELECTOR: OnceLock<Selector> = OnceLock::new();
-        let row_selector = get_or_init_selector!(
-            ROW_SELECTOR,
-            r##"table[bordercolor="#FFFF00"] > tbody > tr"##
-        );
-        let mut top_level_row_iter = element.select(row_selector);
+        static_selector!(ROW_SELECTOR <- r##"table[bordercolor="#FFFF00"] > tbody > tr"##);
+        let mut top_level_row_iter = element.select(&ROW_SELECTOR);
         let meal_name_row = top_level_row_iter.next().ok_or_else(|| {
             Error::html_parse_error("The meal should have a row for the meal type.")
         })?;
         let meal_item_row = top_level_row_iter.next().ok_or_else(|| {
             Error::html_parse_error("The meal should have a row for the meal items.")
         })?;
-        static MEAL_TYPE_SELECTOR: OnceLock<Selector> = OnceLock::new();
-        let meal_type_selector = get_or_init_selector!(MEAL_TYPE_SELECTOR, ".shortmenumeals");
+        static_selector!(MEAL_TYPE_SELECTOR <- ".shortmenumeals");
         let meal_type =
-            text_from_selection(&meal_type_selector, meal_name_row, "meal", "meal type")?;
+            text_from_selection(&MEAL_TYPE_SELECTOR, meal_name_row, "meal", "meal type")?;
         // print out meal type
         let meal_type = match meal_type {
             "Breakfast" => MealType::Breakfast,
@@ -54,9 +47,8 @@ impl<'a> Meal<'a> {
             _ => MealType::AllDay,
         };
 
-        static SECTION_SELECTOR: OnceLock<Selector> = OnceLock::new();
-        let section_selector = get_or_init_selector!(SECTION_SELECTOR, "table > tbody > tr");
-        let section_elements = meal_item_row.select(&section_selector);
+        static_selector!(SECTION_NAME_SELECTOR <- "table > tbody > tr");
+        let section_elements = meal_item_row.select(&SECTION_NAME_SELECTOR);
         let sections = SectionIterator::new(section_elements.peekable(), meal_type);
         let mut sections_vec: Vec<MealSection> = vec![];
         for section in sections {
@@ -115,15 +107,13 @@ pub struct MealSection<'a> {
 impl<'a> MealSection<'a> {
     // takes in an iterator of tr elements of a specific meal and consumes the elements to create a MealSection
     pub fn from_html_elements(elements: &mut Peekable<Select<'a, 'a>>) -> Result<Self, Error> {
-        static MEAL_NAME_SELECTOR: OnceLock<Selector> = OnceLock::new();
-        let section_name_selector =
-            get_or_init_selector!(MEAL_NAME_SELECTOR, ".shortmenucats > span");
+        static_selector!(SECTION_NAME_SELECTOR <- ".shortmenucats > span");
 
         // if the first element does not match the section name selector, then return an error
         let first_element = elements.next().ok_or_else(|| {
             Error::html_parse_error("Every section should have a name as the first element.")
         })?;
-        let name = text_from_selection(section_name_selector, first_element, "section", "name")?;
+        let name = text_from_selection(&SECTION_NAME_SELECTOR, first_element, "section", "name")?;
 
         // trim off first and last three characters since the name looks like -- name --
         let name = &name[3..name.len() - 3];
@@ -131,7 +121,7 @@ impl<'a> MealSection<'a> {
         // iterate through by peeking and calling handle_element
         let mut food_items = vec![];
         while let Some(element) = elements.peek() {
-            if element.select(&section_name_selector).next().is_some() {
+            if element.select(&SECTION_NAME_SELECTOR).next().is_some() {
                 break;
             }
             if let Some(food_item) = Self::handle_element(*element)? {
@@ -143,11 +133,9 @@ impl<'a> MealSection<'a> {
     }
 
     fn handle_element(element: scraper::ElementRef<'a>) -> Result<Option<FoodItem<'a>>, Error> {
-        static SECTION_NAME_SELECTOR: OnceLock<Selector> = OnceLock::new();
-        let section_name_selector =
-            get_or_init_selector!(SECTION_NAME_SELECTOR, ".shortmenucats > span");
-        if element.select(&section_name_selector).next().is_some() {
-            return Ok(None);
+        static_selector!(SECTION_NAME_SELECTOR <- ".shortmenucats > span");
+        if element.select(&SECTION_NAME_SELECTOR).next().is_some() {
+            Ok(None)
         } else {
             let out = FoodItem::from_html_element(element)?;
             Ok(Some(out))

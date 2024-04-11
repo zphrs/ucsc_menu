@@ -97,7 +97,7 @@ mod tests {
 
     use scraper::Selector;
 
-    use crate::get_or_init_selector;
+    use crate::static_selector;
 
     use super::*;
     const HTML: &str = r#"
@@ -171,9 +171,9 @@ mod tests {
 
         let doc = scraper::Html::parse_document(HTML);
         static SELECTOR: OnceLock<Selector> = OnceLock::new();
-        let selector = get_or_init_selector!(SELECTOR, "img");
+        static_selector!(DATE_SELECTOR <- "img");
         let mut all_allergen_flags = AllergenFlags::empty();
-        for element in doc.select(&selector) {
+        for element in doc.select(&DATE_SELECTOR) {
             let img_url = element.value().attr("src").unwrap(); // all img elements should have a src attribute
             let allergen_flags = AllergenInfo::img_url_to_allergen(img_url)
                 .expect("All img urls in this example should be valid");
