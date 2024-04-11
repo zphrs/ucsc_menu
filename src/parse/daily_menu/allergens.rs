@@ -78,6 +78,12 @@ impl Display for AllergenInfo {
     }
 }
 
+impl Into<Vec<&'static str>> for &AllergenInfo {
+    fn into(self) -> Vec<&'static str> {
+        (&self.0).into()
+    }
+}
+
 bitflags! {
     #[derive(Debug, PartialEq, Eq)]
     pub struct AllergenFlags: u16 {
@@ -99,9 +105,9 @@ bitflags! {
     }
 }
 
-impl Display for AllergenFlags {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let allergens = [
+impl Into<Vec<&'static str>> for &AllergenFlags {
+    fn into(self) -> Vec<&'static str> {
+        static ALLERGENS: [(AllergenFlags, &'static str); 15] = [
             (AllergenFlags::Egg, "Egg"),
             (AllergenFlags::Fish, "Fish"),
             (AllergenFlags::GlutenFriendly, "Gluten Friendly"),
@@ -118,18 +124,25 @@ impl Display for AllergenFlags {
             (AllergenFlags::Shellfish, "Shellfish"),
             (AllergenFlags::Sesame, "Sesame"),
         ];
-        let mut first = true;
-        for (allergen_flag, allergen_name) in allergens.into_iter() {
-            if self.contains(allergen_flag) {
-                if first {
-                    first = false;
+        ALLERGENS
+            .iter()
+            .filter_map(|(allergen_flag, allergen_name)| {
+                let flag = AllergenFlags::from_bits(allergen_flag.bits())
+                    .expect("AllergenFlags should be valid");
+                if self.contains(flag) {
+                    Some(*allergen_name)
                 } else {
-                    write!(f, ", ")?;
+                    None
                 }
-                write!(f, "{}", allergen_name)?;
-            }
-        }
-        Ok(())
+            })
+            .collect()
+    }
+}
+
+impl Display for AllergenFlags {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let allergens: Vec<&str> = self.into();
+        write!(f, "{}", allergens.join(", "))
     }
 }
 
