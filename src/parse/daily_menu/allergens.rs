@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, ops::Deref};
 
 use crate::parse::Error;
 use bitflags::bitflags;
@@ -75,6 +75,14 @@ impl AllergenInfo {
 impl Display for AllergenInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl Deref for AllergenInfo {
+    type Target = AllergenFlags;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
