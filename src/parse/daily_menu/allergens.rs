@@ -72,6 +72,12 @@ impl AllergenInfo {
     }
 }
 
+impl Display for AllergenInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 bitflags! {
     #[derive(Debug, PartialEq, Eq)]
     pub struct AllergenFlags: u16 {
