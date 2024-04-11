@@ -11,7 +11,7 @@ impl AllergenInfo {
         // use reduce to or the allergen flags
         let allergen_flags = elements
             .filter_map(|element| element.value().attr("src"))
-            .map(|img_url| Self::img_url_to_allergen(img_url));
+            .map(Self::img_url_to_allergen);
         // if there is an error, return the error via a for loop
         let mut acc = AllergenFlags::empty();
         for allergen_flag in allergen_flags {
@@ -72,31 +72,27 @@ impl AllergenInfo {
 bitflags! {
     #[derive(Debug, PartialEq, Eq)]
     pub struct AllergenFlags: u16 {
-        const Egg = 0b0000000000000001;
-        const Fish = 0b0000000000000010;
-        const GlutenFriendly = 0b0000000000000100;
-        const Milk = 0b000000000001000;
-        const Peanut = 0b0000000000010000;
-        const Soy = 0b0000000000100000;
-        const TreeNut = 0b0000000001000000;
-        const Alcohol = 0b0000000010000000;
-        const Vegan = 0b0000000100000000;
-        const Vegetarian = 0b0000001000000000;
-        const Pork = 0b0000010000000000;
-        const Beef = 0b0000100000000000;
-        const Halal = 0b0001000000000000;
-        const Shellfish = 0b0010000000000000;
-        const Sesame = 0b0100000000000000;
+        const Egg = 1;
+        const Fish = 1 << 1;
+        const GlutenFriendly = 1 << 2;
+        const Milk = 1 << 3;
+        const Peanut = 1 << 4;
+        const Soy = 1 << 5;
+        const TreeNut = 1 << 6;
+        const Alcohol = 1 << 7;
+        const Vegan =  1 << 8;
+        const Vegetarian = 1 << 9;
+        const Pork = 1 << 10;
+        const Beef = 1 << 11;
+        const Halal = 1 << 12;
+        const Shellfish = 1 << 13;
+        const Sesame = 1 << 14;
     }
 }
 
 #[cfg(test)]
 
 mod tests {
-    use std::sync::OnceLock;
-
-    use scraper::Selector;
-
     use crate::static_selector;
 
     use super::*;
@@ -170,7 +166,6 @@ mod tests {
         // source: https://nutrition.sa.ucsc.edu/allergenfilter.aspx?strcurlocationnum=40
 
         let doc = scraper::Html::parse_document(HTML);
-        static SELECTOR: OnceLock<Selector> = OnceLock::new();
         static_selector!(DATE_SELECTOR <- "img");
         let mut all_allergen_flags = AllergenFlags::empty();
         for element in doc.select(&DATE_SELECTOR) {
@@ -183,6 +178,6 @@ mod tests {
             all_allergen_flags |= allergen_flags;
         }
         // ensure that all the allergen flags are picked up properly
-        assert!(all_allergen_flags.is_all())
+        assert!(all_allergen_flags.is_all());
     }
 }
