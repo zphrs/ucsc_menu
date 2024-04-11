@@ -1,6 +1,9 @@
+use juniper::GraphQLObject;
+
 use crate::{parse::Error, static_selector};
 
 use super::location_meta::LocationMeta;
+
 struct Locations {
     locations: Vec<LocationMeta>,
 }

@@ -26,6 +26,7 @@ impl<'a> LocationData<'a> {
         };
 
         slot.replace(menu);
+        self.meals.sort();
 
         Ok(())
     }

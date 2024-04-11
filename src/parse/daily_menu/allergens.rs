@@ -1,5 +1,8 @@
+use std::fmt::Display;
+
 use crate::parse::Error;
 use bitflags::bitflags;
+use juniper::GraphQLObject;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct AllergenInfo(AllergenFlags);
@@ -87,6 +90,40 @@ bitflags! {
         const Halal = 1 << 12;
         const Shellfish = 1 << 13;
         const Sesame = 1 << 14;
+    }
+}
+
+impl Display for AllergenFlags {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let allergens = [
+            (AllergenFlags::Egg, "Egg"),
+            (AllergenFlags::Fish, "Fish"),
+            (AllergenFlags::GlutenFriendly, "Gluten Friendly"),
+            (AllergenFlags::Milk, "Milk"),
+            (AllergenFlags::Peanut, "Peanut"),
+            (AllergenFlags::Soy, "Soy"),
+            (AllergenFlags::TreeNut, "Tree Nut"),
+            (AllergenFlags::Alcohol, "Alcohol"),
+            (AllergenFlags::Vegan, "Vegan"),
+            (AllergenFlags::Vegetarian, "Vegetarian"),
+            (AllergenFlags::Pork, "Pork"),
+            (AllergenFlags::Beef, "Beef"),
+            (AllergenFlags::Halal, "Halal"),
+            (AllergenFlags::Shellfish, "Shellfish"),
+            (AllergenFlags::Sesame, "Sesame"),
+        ];
+        let mut first = true;
+        for (allergen_flag, allergen_name) in allergens.into_iter() {
+            if self.contains(allergen_flag) {
+                if first {
+                    first = false;
+                } else {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", allergen_name)?;
+            }
+        }
+        Ok(())
     }
 }
 
