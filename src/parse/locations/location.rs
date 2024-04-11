@@ -68,7 +68,6 @@ impl<'a> Location<'a> {
             .await?
             .text()
             .await?;
-        let menu = Arc::new(menu);
 
         let html = Html::parse_document(&menu);
 
