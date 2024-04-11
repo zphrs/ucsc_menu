@@ -1,4 +1,5 @@
-use std::borrow::Cow;
+use std::borrow::{Borrow, Cow};
+use std::sync::Arc;
 
 use crate::parse::daily_menu::DailyMenu;
 use crate::parse::Error;
@@ -11,6 +12,7 @@ pub(super) struct Location<'a> {
     name: Cow<'a, str>,
     id: String, // ex. 40 for 9/10
     daily_menus: Vec<DailyMenu<'a>>,
+    html: Arc<Html>,
 }
 
 impl<'a> Location<'a> {
@@ -24,23 +26,23 @@ impl<'a> Location<'a> {
         };
 
         // TODO: make static
-        let url = Url::parse("https://nutrition.sa.ucsc.edu").expect("base url is invalid!");
-        let Ok(url) = url.join(
-            location_element
-                .attr("href")
-                .ok_or(Error::html_parse_error(
-                    "location <a> does not have a href attr",
-                ))?,
-        ) else {
+        let url = Url::parse("https://nutrition.sa.ucsc.edu").expect("base url should be valid!");
+        let Ok(url) =
+            url.join(location_element.attr("href").ok_or_else(|| {
+                Error::html_parse_error("location <a> does not have a href attr")
+            })?)
+        else {
             return Err(Error::html_parse_error("Location url is invalid"));
         };
 
         let id = url
             .query_pairs()
             .find(|x| x.0 == "locationNum")
-            .ok_or(Error::html_parse_error(
-                "Location url does not include the `locationNum` query parameter",
-            ))?
+            .ok_or_else(|| {
+                Error::html_parse_error(
+                    "Location url does not include the `locationNum` query parameter",
+                )
+            })?
             .1
             .into_owned();
 
@@ -54,18 +56,35 @@ impl<'a> Location<'a> {
         if name.is_empty() {
             return Err(Error::html_parse_error("Location name is missing"));
         }
-
-        let menu = client.get(url).header("Cookie", format!("WebInaCartDates=; WebInaCartLocation={id}; WebInaCartMeals=; WebInaCartQtys=; WebInaCartRecipes=")).send().await?.text().await?;
+        let mut cookies = String::with_capacity(100);
+        cookies.push_str("WebInaCartDates=; ");
+        cookies.push_str("WebInaCartLocation=");
+        cookies.push_str(&id);
+        cookies.push_str("; WebInaCartMeals=; WebInaCartQtys=; WebInaCartRecipes=");
+        let menu = client
+            .get(url)
+            .header("Cookie", cookies)
+            .send()
+            .await?
+            .text()
+            .await?;
+        let menu = Arc::new(menu);
 
         let html = Html::parse_document(&menu);
 
-        // let daily_menus = DailyMenu::from_html_element(html.root_element());
+        let html = Arc::new(html);
 
-        Ok(Self {
+        let out = Self {
             name,
             id,
-            daily_menus: vec![], // TODO
-        })
+            daily_menus: vec![],
+            html,
+        };
+
+        let daily_menu = DailyMenu::from_html_element(out.html.root_element())?;
+        let daily_menus = vec![daily_menu];
+
+        Ok(out)
     }
 }
 

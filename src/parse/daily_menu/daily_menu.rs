@@ -25,7 +25,7 @@ mod tests {
         let html =
             fs::read_to_string("./src/parse/html_examples/daily_menu/meals_on_date.html").unwrap();
         let document = scraper::Html::parse_document(&html);
-        let meals = DailyMenu::from_html_element(document.root_element())
+        let meals = DailyMenu::from_html_element(&document.root_element())
             .expect("The example html should be valid");
         assert_eq!(
             meals.date,
