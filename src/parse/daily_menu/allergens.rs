@@ -4,7 +4,7 @@ use crate::parse::Error;
 use bitflags::bitflags;
 use juniper::GraphQLObject;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct AllergenInfo(AllergenFlags);
 
 impl AllergenInfo {
@@ -78,22 +78,14 @@ impl Display for AllergenInfo {
     }
 }
 
-impl Deref for AllergenInfo {
-    type Target = AllergenFlags;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Into<Vec<&'static str>> for &AllergenInfo {
-    fn into(self) -> Vec<&'static str> {
-        (&self.0).into()
+impl From<AllergenFlags> for AllergenInfo {
+    fn from(flags: AllergenFlags) -> Self {
+        Self(flags)
     }
 }
 
 bitflags! {
-    #[derive(Debug, PartialEq, Eq)]
+    #[derive(Debug, PartialEq, Eq, Clone, Copy)]
     pub struct AllergenFlags: u16 {
         const Egg = 1;
         const Fish = 1 << 1;
@@ -144,6 +136,12 @@ impl Into<Vec<&'static str>> for &AllergenFlags {
                 }
             })
             .collect()
+    }
+}
+
+impl Into<Vec<&'static str>> for AllergenFlags {
+    fn into(self) -> Vec<&'static str> {
+        (&self).into()
     }
 }
 
