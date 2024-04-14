@@ -1,8 +1,7 @@
-use std::{fmt::Display, ops::Deref};
+use std::fmt::Display;
 
 use crate::parse::Error;
 use bitflags::bitflags;
-use juniper::GraphQLObject;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct AllergenInfo(AllergenFlags);
