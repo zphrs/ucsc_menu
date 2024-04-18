@@ -42,7 +42,7 @@ impl<'a> Meal<'a> {
         let meal_type =
             text_from_selection(&MEAL_TYPE_SELECTOR, meal_name_row, "meal", "meal type")?;
         // print out meal type
-        let meal_type = match *meal_type {
+        let meal_type = match meal_type {
             "Breakfast" => MealType::Breakfast,
             "Lunch" => MealType::Lunch,
             "Dinner" => MealType::Dinner,
@@ -92,12 +92,10 @@ impl<'a> Iterator for SectionIterator<'a> {
     type Item = Result<MealSection<'a>, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut elements = &mut self.elements;
+        let elements = &mut self.elements;
         // check if there are any elements left
-        if elements.peek().is_none() {
-            return None;
-        }
-        let section = MealSection::from_html_elements(&mut elements);
+        elements.peek()?; // if there are no elements left, return None
+        let section = MealSection::from_html_elements(elements);
         Some(section)
     }
 }
@@ -120,27 +118,20 @@ impl<'a> MealSection<'a> {
         excludes_all_allergens: Option<Vec<Allergens>>,
         contains_any_allergens: Option<Vec<Allergens>>,
     ) -> Vec<FoodItem<'a>> {
-        let contains_mask: Option<AllergenFlags> = contains_all_allergens.map(|x| x.into());
-        let excludes_mask: Option<AllergenFlags> = excludes_all_allergens.map(|x| x.into());
+        let contains_all_mask: Option<AllergenFlags> = contains_all_allergens.map(|x| x.into());
+        let excludes_all_mask: Option<AllergenFlags> = excludes_all_allergens.map(|x| x.into());
         let contains_any_mask: Option<AllergenFlags> = contains_any_allergens.map(|x| x.into());
+        let allergen_filter = |food_item: &&FoodItem<'a>| {
+            let mask = food_item.get_allergen_mask();
+            let mut out = true;
+            out &= contains_all_mask.map_or(true, |contains_all| mask.contains(contains_all));
+            out &= contains_any_mask.map_or(true, |contains_any| mask.intersects(contains_any));
+            out &= excludes_all_mask.map_or(true, |excludes_all| !mask.intersects(excludes_all));
+            out
+        };
         self.food_items
             .iter()
-            .filter(|food_item| {
-                let mut out = false;
-                let mask = food_item.get_allergen_mask();
-                if let Some(contains) = contains_mask {
-                    out = mask.contains(contains);
-                } else {
-                    out = true;
-                };
-                if let Some(excludes) = excludes_mask {
-                    out = out && !mask.intersects(excludes);
-                };
-                if let Some(contains_any) = contains_any_mask {
-                    out = out && mask.intersects(contains_any);
-                };
-                out
-            })
+            .filter(allergen_filter)
             .cloned()
             .collect()
     }
@@ -187,7 +178,7 @@ impl<'a> MealSection<'a> {
 
 #[cfg(test)]
 mod tests {
-    use juniper::{EmptyMutation, EmptySubscription, RootNode, Value};
+    use juniper::{EmptyMutation, EmptySubscription, RootNode};
 
     use super::*;
     use std::{
@@ -233,13 +224,13 @@ mod tests {
             }
         "#;
         let binding = juniper::Variables::default();
-        let res = juniper::execute(&query, None, &schema, &binding, &())
+        let res = juniper::execute(query, None, &schema, &binding, &())
             .await
             .unwrap()
             .0;
         serde_json::to_string_pretty(&res).unwrap();
         // println!("{:#?}", res);
         println!("{}", serde_json::to_string_pretty(&res).unwrap());
-        assert!(false);
+        panic!();
     }
 }

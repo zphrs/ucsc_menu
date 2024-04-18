@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::parse::Error;
 use bitflags::bitflags;
-use juniper::{graphql_object, GraphQLEnum};
+use juniper::GraphQLEnum;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct AllergenInfo(pub(super) AllergenFlags);
@@ -150,9 +150,9 @@ impl From<AllergenFlags> for Vec<Allergens> {
     }
 }
 
-impl Into<AllergenFlags> for Allergens {
-    fn into(self) -> AllergenFlags {
-        match self {
+impl From<Allergens> for AllergenFlags {
+    fn from(allergen: Allergens) -> AllergenFlags {
+        match allergen {
             Allergens::Egg => AllergenFlags::Egg,
             Allergens::Fish => AllergenFlags::Fish,
             Allergens::GlutenFriendly => AllergenFlags::GlutenFriendly,

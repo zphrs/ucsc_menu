@@ -1,4 +1,3 @@
-use juniper::GraphQLObject;
 use scraper::Html;
 
 use crate::{parse::Error, static_selector};
@@ -68,7 +67,7 @@ impl<'a> Locations<'a> {
             .iter_mut()
             .find(|x| x.1 == location_meta)
             .ok_or_else(|| {
-                Error::InternalError(format!(
+                Error::Internal(format!(
                     "Location with id {} is either already hydrated or does not exist. Clear all locations and try again.",
                     location_meta.id()
                 ))

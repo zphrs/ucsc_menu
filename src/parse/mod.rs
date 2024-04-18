@@ -1,9 +1,9 @@
-mod daily_menu;
+mod menu_page;
 mod error;
 pub use error::Error;
-mod locations;
+mod location_page;
 mod static_selector;
 mod text_from_selection;
 
-pub use locations::LocationMeta;
-pub use locations::Locations;
+pub use location_page::LocationMeta;
+pub use location_page::Locations;

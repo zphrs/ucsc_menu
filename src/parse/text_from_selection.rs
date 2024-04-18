@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use super::Error;
 use scraper::{ElementRef, Selector};
 
@@ -9,12 +7,12 @@ pub fn text_from_selection<'a>(
     element: ElementRef<'a>,
     parent_label: &str,
     child_label: &str,
-) -> Result<Arc<&'a str>, Error> {
+) -> Result<&'a str, Error> {
     let parent = element
         .select(selector)
         .next() // first match
         .ok_or_else(|| {
-            Error::HTMLParseError(format!(
+            Error::HtmlParse(format!(
                 "Every {parent_label} element should have a {child_label}."
             ))
         })?;
@@ -22,22 +20,19 @@ pub fn text_from_selection<'a>(
 }
 
 /// will panic if ther is not exactly one text node inside the element
-pub fn get_inner_text<'a>(
-    element: ElementRef<'a>,
-    text_label: &str,
-) -> Result<Arc<&'a str>, Error> {
+pub fn get_inner_text<'a>(element: ElementRef<'a>, text_label: &str) -> Result<&'a str, Error> {
     let mut text_iter = element.text();
-    let text_node = text_iter.next().ok_or_else(|| {
-        Error::TextNodeParseError(format!("{text_label} should have text inside."))
-    })?;
+    let text_node = text_iter
+        .next()
+        .ok_or_else(|| Error::TextNodeParse(format!("{text_label} should have text inside.")))?;
 
     if text_iter.next().is_some() {
         // capitalize the first letter of the text node
         let mut text_label = text_label.to_string();
         text_label[..1].make_ascii_uppercase();
-        return Err(Error::TextNodeParseError(format!(
+        return Err(Error::TextNodeParse(format!(
             "{text_label} element should only have one text node inside of it."
         )));
     }
-    Ok(Arc::new(text_node))
+    Ok(text_node)
 }

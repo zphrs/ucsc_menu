@@ -1,4 +1,5 @@
 #![allow(dead_code)] // TODO: remove this line once done with crate
+#![allow(unused_imports)] // TODO: remove this line once done with crate
 
 mod cache;
 mod fetch;

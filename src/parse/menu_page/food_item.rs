@@ -1,15 +1,13 @@
-use std::sync::Arc;
-
 use super::allergens::{AllergenFlags, AllergenInfo, Allergens};
 use crate::parse::text_from_selection::{get_inner_text, text_from_selection};
 use crate::parse::Error;
 use crate::static_selector;
-use juniper::{graphql_object, GraphQLObject};
+use juniper::graphql_object;
 use rusty_money::{iso, Money};
 
 #[derive(Debug, Clone)]
 pub struct FoodItem<'a> {
-    name: Arc<&'a str>,
+    name: &'a str,
     allergen_info: AllergenInfo,
     price: Option<Money<'a, iso::Currency>>, // in cents
 }
@@ -30,7 +28,6 @@ impl<'a> FoodItem<'a> {
         // get name with css selector .shortmenurecipes > span
         static_selector!(NAME_SELECTOR <- ".shortmenurecipes > span");
         let name = text_from_selection(&NAME_SELECTOR, element, "foodItem", "name")?.trim_end();
-        let name = Arc::new(name);
         // get allergen info with css selector td > img
         static_selector!(ALLERGEN_INFO_SELECTOR <- "td > img");
         let allergen_info =
@@ -42,7 +39,7 @@ impl<'a> FoodItem<'a> {
         let price = if let Some(price_element) = price_element {
             let price = get_inner_text(price_element, "price")?; // will look like "$5.00"
                                                                  // if price is equal to &nbsp; then return None
-            if *price == "\u{00A0}" {
+            if price == "\u{00A0}" {
                 None
             } else {
                 let price = &price[1..]; // remove the dollar sign
@@ -64,9 +61,10 @@ impl<'a> FoodItem<'a> {
     }
 }
 
-impl Into<AllergenFlags> for Vec<Allergens> {
-    fn into(self) -> AllergenFlags {
-        self.into_iter()
+impl From<Vec<Allergens>> for AllergenFlags {
+    fn from(allergens: Vec<Allergens>) -> Self {
+        allergens
+            .into_iter()
             .fold(AllergenFlags::empty(), |acc, x| acc | x.into())
     }
 }
@@ -78,7 +76,7 @@ impl<'a> FoodItem<'a> {
     }
 
     pub fn name(&self) -> &'a str {
-        *self.name
+        self.name
     }
     pub fn price(&self) -> Option<String> {
         self.price.as_ref().map(Money::to_string)
@@ -90,7 +88,7 @@ mod tests {
     use juniper::{EmptyMutation, EmptySubscription, RootNode};
 
     use super::*;
-    use crate::parse::daily_menu::allergens::{AllergenFlags, AllergenInfo};
+    use crate::parse::menu_page::allergens::{AllergenFlags, AllergenInfo};
 
     #[test]
     fn test_food_item_from_html_element() {
@@ -120,7 +118,7 @@ mod tests {
     #[tokio::test]
     async fn test_schema() {
         let x = FoodItem {
-            name: Arc::new("yummy meat"),
+            name: "yummy meat",
             allergen_info: AllergenInfo(AllergenFlags::Egg | AllergenFlags::Sesame),
             price: None,
         };

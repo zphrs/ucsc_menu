@@ -1,6 +1,6 @@
 use scraper::Html;
 
-use crate::parse::daily_menu::DailyMenu;
+use crate::parse::menu_page::DailyMenu;
 use crate::parse::error::Result;
 use crate::parse::Error;
 
