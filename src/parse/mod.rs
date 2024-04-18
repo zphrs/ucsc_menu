@@ -6,3 +6,4 @@ mod static_selector;
 mod text_from_selection;
 
 pub use locations::LocationMeta;
+pub use locations::Locations;

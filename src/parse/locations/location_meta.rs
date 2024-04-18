@@ -9,6 +9,14 @@ pub struct LocationMeta {
     url: Url,
 }
 
+impl PartialEq for LocationMeta {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for LocationMeta {}
+
 impl LocationMeta {
     pub fn url(&self) -> &Url {
         &self.url

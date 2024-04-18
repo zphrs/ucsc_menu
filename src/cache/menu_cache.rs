@@ -1,10 +1,10 @@
 use chrono::NaiveDate;
 
-use crate::parse::LocationMeta;
+use crate::parse::Locations;
 
-struct menu_cache {
+struct MenuCache<'a> {
     date: NaiveDate,
-    locations: Vec<LocationMeta>,
+    locations: Locations<'a>,
 }
 
-impl menu_cache {}
+impl<'a> MenuCache<'a> {}

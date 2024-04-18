@@ -8,6 +8,7 @@ pub enum Error {
     TextNodeParseError(String),
     PriceParseError(String),
     HTTPError(String),
+    InternalError(String),
 }
 
 impl From<MoneyError> for Error {
@@ -38,6 +39,12 @@ impl Error {
     }
 }
 
+impl Error {
+    pub fn internal_error(msg: &str) -> Self {
+        Self::InternalError(msg.to_string())
+    }
+}
+
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -45,6 +52,7 @@ impl Display for Error {
             Self::TextNodeParseError(msg) => write!(f, "Text Node Parse Error: {}", msg),
             Self::PriceParseError(msg) => write!(f, "Price Parse Error: {}", msg),
             Self::HTTPError(msg) => write!(f, "HTTP Request Error: {msg}"),
+            Self::InternalError(msg) => write!(f, "Internal Error: {msg}"),
         }
     }
 }

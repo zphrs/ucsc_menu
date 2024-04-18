@@ -1,13 +1,14 @@
 use std::{iter::Peekable, vec};
 
+use juniper::{graphql_object, GraphQLEnum, GraphQLObject};
 use scraper::{element_ref::Select, selectable::Selectable};
 
 use crate::{parse::text_from_selection::text_from_selection, static_selector};
 
-use super::food_item::FoodItem;
+use super::{allergens::Allergens, food_item::FoodItem};
 use crate::parse::Error;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, GraphQLEnum)]
 pub enum MealType {
     Breakfast,
     Lunch,
@@ -17,7 +18,7 @@ pub enum MealType {
     Unknown, // used for when the meal type is not known (ex. when the food item is detached from a meal)
     AllDay,  // default if the above don't match
 }
-#[derive(Debug)]
+#[derive(Debug, GraphQLObject)]
 pub struct Meal<'a> {
     pub meal_type: MealType,
     pub sections: Vec<MealSection<'a>>,
@@ -38,7 +39,7 @@ impl<'a> Meal<'a> {
         let meal_type =
             text_from_selection(&MEAL_TYPE_SELECTOR, meal_name_row, "meal", "meal type")?;
         // print out meal type
-        let meal_type = match meal_type {
+        let meal_type = match *meal_type {
             "Breakfast" => MealType::Breakfast,
             "Lunch" => MealType::Lunch,
             "Dinner" => MealType::Dinner,
@@ -104,6 +105,26 @@ pub struct MealSection<'a> {
     pub food_items: Vec<FoodItem<'a>>,
 }
 
+#[graphql_object]
+impl<'a> MealSection<'a> {
+    pub fn name(&self) -> &'a str {
+        self.name
+    }
+
+    pub fn food_items(&self, contains_allergen: Option<Allergens>) -> Vec<FoodItem<'a>> {
+        let Some(allergen) = contains_allergen else {
+            // return self.food_items.iter()
+            return self.food_items.clone();
+        };
+
+        self.food_items
+            .iter()
+            .filter(|food_item| food_item.contains_allergen(allergen))
+            .cloned()
+            .collect()
+    }
+}
+
 impl<'a> MealSection<'a> {
     // takes in an iterator of tr elements of a specific meal and consumes the elements to create a MealSection
     pub fn from_html_elements(elements: &mut Peekable<Select<'a, 'a>>) -> Result<Self, Error> {
@@ -145,8 +166,13 @@ impl<'a> MealSection<'a> {
 
 #[cfg(test)]
 mod tests {
+    use juniper::{EmptyMutation, EmptySubscription, RootNode, Value};
+
     use super::*;
-    use std::fs;
+    use std::{
+        fmt::{Debug, Display},
+        fs,
+    };
 
     #[test]
     fn test_meal_parse() {
@@ -159,5 +185,39 @@ mod tests {
         assert_eq!(meal.sections.len(), 3);
         // print out the names of the sections
         println!("{:#?}", meal);
+    }
+
+    #[tokio::test]
+    async fn test_schema() {
+        let html = fs::read_to_string("./src/parse/html_examples/daily_menu/meal.html").unwrap();
+        let document = scraper::Html::parse_document(&html);
+        let meal = Meal::from_html_element(document.root_element())
+            .expect("The example html should be valid");
+        let schema = RootNode::new(
+            meal,
+            EmptyMutation::<()>::new(),
+            EmptySubscription::<()>::new(),
+        );
+        // println!("{}", schema.as_sdl());
+        let query = r#"
+            {
+                mealType
+                sections {
+                    name
+                    foodItems(containsAllergen: VEGAN) {
+                        name
+                    }
+                }
+            }
+        "#;
+        let binding = juniper::Variables::default();
+        let res = juniper::execute(&query, None, &schema, &binding, &())
+            .await
+            .unwrap()
+            .0;
+        serde_json::to_string_pretty(&res).unwrap();
+        // println!("{:#?}", res);
+        println!("{}", serde_json::to_string_pretty(&res).unwrap());
+        assert!(false);
     }
 }

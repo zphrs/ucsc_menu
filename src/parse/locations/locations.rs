@@ -1,15 +1,44 @@
 use juniper::GraphQLObject;
+use scraper::Html;
 
 use crate::{parse::Error, static_selector};
 
 use super::location_meta::LocationMeta;
 
-struct Locations {
-    locations: Vec<LocationMeta>,
+use super::location_data::LocationData;
+
+#[derive(Debug)]
+pub struct Location<'a>(LocationData<'a>, LocationMeta);
+
+impl<'a> Location<'a> {
+    pub fn new(location_meta: LocationMeta) -> Self {
+        Self(LocationData::new(), location_meta)
+    }
+
+    pub fn add_meals(&mut self, html: Vec<&'a Html>) -> Result<(), Error> {
+        // TODO: instead of immediately clearing, diff the similar meals first
+        self.clear();
+        for html in html {
+            self.0.add_meal(html)?;
+        }
+        Ok(())
+    }
+
+    pub fn hydrated(&self) -> bool {
+        !self.0.empty()
+    }
+
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
 }
 
-impl Locations {
-    pub(super) fn from_html_element(element: scraper::ElementRef) -> Result<Self, Error> {
+pub struct Locations<'a> {
+    locations: Vec<Location<'a>>,
+}
+
+impl<'a> Locations<'a> {
+    pub fn from_html_element(element: scraper::ElementRef) -> Result<Self, Error> {
         static_selector!(LOCATION_CHOICES_SELECTOR <- "div#locationchoices");
         static_selector!(LOCATION_SELECTOR <- "li.locations");
 
@@ -23,10 +52,31 @@ impl Locations {
         let mut locations = Vec::with_capacity(location_matches.size_hint().0);
         for location in location_matches {
             let location_meta = LocationMeta::from_html_element(location)?;
-            locations.push(location_meta);
+            locations.push(Location::new(location_meta));
         }
 
         Ok(Self { locations })
+    }
+
+    pub fn add_meals<'b: 'a>(
+        &mut self,
+        html: Vec<&'b Html>,
+        location_meta: LocationMeta,
+    ) -> Result<(), Error> {
+        let location = self
+            .locations
+            .iter_mut()
+            .find(|x| x.1 == location_meta)
+            .ok_or_else(|| {
+                Error::InternalError(format!(
+                    "Location with id {} is either already hydrated or does not exist. Clear all locations and try again.",
+                    location_meta.id()
+                ))
+            })?;
+
+        location.add_meals(html)?;
+
+        Ok(())
     }
 }
 

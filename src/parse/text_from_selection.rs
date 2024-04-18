@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::Error;
 use scraper::{ElementRef, Selector};
 
@@ -7,7 +9,7 @@ pub fn text_from_selection<'a>(
     element: ElementRef<'a>,
     parent_label: &str,
     child_label: &str,
-) -> Result<&'a str, Error> {
+) -> Result<Arc<&'a str>, Error> {
     let parent = element
         .select(selector)
         .next() // first match
@@ -20,7 +22,10 @@ pub fn text_from_selection<'a>(
 }
 
 /// will panic if ther is not exactly one text node inside the element
-pub fn get_inner_text<'a>(element: ElementRef<'a>, text_label: &str) -> Result<&'a str, Error> {
+pub fn get_inner_text<'a>(
+    element: ElementRef<'a>,
+    text_label: &str,
+) -> Result<Arc<&'a str>, Error> {
     let mut text_iter = element.text();
     let text_node = text_iter.next().ok_or_else(|| {
         Error::TextNodeParseError(format!("{text_label} should have text inside."))
@@ -34,5 +39,5 @@ pub fn get_inner_text<'a>(element: ElementRef<'a>, text_label: &str) -> Result<&
             "{text_label} element should only have one text node inside of it."
         )));
     }
-    Ok(text_node)
+    Ok(Arc::new(text_node))
 }

@@ -2,9 +2,9 @@ use std::fmt::Display;
 
 use crate::parse::Error;
 use bitflags::bitflags;
-use juniper::graphql_object;
+use juniper::{graphql_object, GraphQLEnum};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct AllergenInfo(pub(super) AllergenFlags);
 
 impl AllergenInfo {
@@ -85,7 +85,7 @@ impl From<&AllergenInfo> for Vec<&'static str> {
 }
 
 bitflags! {
-    #[derive(Debug, PartialEq, Eq)]
+    #[derive(Debug, PartialEq, Eq, Clone, Copy)]
     pub struct AllergenFlags: u16 {
         const Egg = 1;
         const Fish = 1 << 1;
@@ -102,6 +102,73 @@ bitflags! {
         const Halal = 1 << 12;
         const Shellfish = 1 << 13;
         const Sesame = 1 << 14;
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, GraphQLEnum)]
+pub enum Allergens {
+    Egg,
+    Fish,
+    GlutenFriendly,
+    Milk,
+    Peanut,
+    Soy,
+    TreeNut,
+    Alcohol,
+    Vegan,
+    Vegetarian,
+    Pork,
+    Beef,
+    Halal,
+    Shellfish,
+    Sesame,
+}
+
+impl From<AllergenFlags> for Vec<Allergens> {
+    fn from(value: AllergenFlags) -> Self {
+        value
+            .into_iter()
+            .map(|x| match x {
+                AllergenFlags::Egg => Allergens::Egg,
+                AllergenFlags::Fish => Allergens::Fish,
+                AllergenFlags::GlutenFriendly => Allergens::GlutenFriendly,
+                AllergenFlags::Milk => Allergens::Milk,
+                AllergenFlags::Peanut => Allergens::Peanut,
+                AllergenFlags::Soy => Allergens::Soy,
+                AllergenFlags::TreeNut => Allergens::TreeNut,
+                AllergenFlags::Alcohol => Allergens::Alcohol,
+                AllergenFlags::Vegan => Allergens::Vegan,
+                AllergenFlags::Vegetarian => Allergens::Vegetarian,
+                AllergenFlags::Pork => Allergens::Pork,
+                AllergenFlags::Beef => Allergens::Beef,
+                AllergenFlags::Halal => Allergens::Halal,
+                AllergenFlags::Shellfish => Allergens::Shellfish,
+                AllergenFlags::Sesame => Allergens::Sesame,
+                _ => unreachable!("Allergen flags should be one-to-one with Allergens enum"),
+            })
+            .collect()
+    }
+}
+
+impl Into<AllergenFlags> for Allergens {
+    fn into(self) -> AllergenFlags {
+        match self {
+            Allergens::Egg => AllergenFlags::Egg,
+            Allergens::Fish => AllergenFlags::Fish,
+            Allergens::GlutenFriendly => AllergenFlags::GlutenFriendly,
+            Allergens::Milk => AllergenFlags::Milk,
+            Allergens::Peanut => AllergenFlags::Peanut,
+            Allergens::Soy => AllergenFlags::Soy,
+            Allergens::TreeNut => AllergenFlags::TreeNut,
+            Allergens::Alcohol => AllergenFlags::Alcohol,
+            Allergens::Vegan => AllergenFlags::Vegan,
+            Allergens::Vegetarian => AllergenFlags::Vegetarian,
+            Allergens::Pork => AllergenFlags::Pork,
+            Allergens::Beef => AllergenFlags::Beef,
+            Allergens::Halal => AllergenFlags::Halal,
+            Allergens::Shellfish => AllergenFlags::Shellfish,
+            Allergens::Sesame => AllergenFlags::Sesame,
+        }
     }
 }
 
@@ -139,6 +206,18 @@ impl From<&AllergenFlags> for Vec<&'static str> {
     }
 }
 
+impl From<AllergenInfo> for AllergenFlags {
+    fn from(val: AllergenInfo) -> Self {
+        val.0
+    }
+}
+
+impl From<AllergenInfo> for Vec<Allergens> {
+    fn from(val: AllergenInfo) -> Self {
+        val.0.into()
+    }
+}
+
 impl Display for AllergenFlags {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let allergens: Vec<&str> = self.into();
@@ -149,7 +228,6 @@ impl Display for AllergenFlags {
 #[cfg(test)]
 
 mod tests {
-    use juniper::{EmptyMutation, EmptySubscription, RootNode};
 
     use crate::static_selector;
 

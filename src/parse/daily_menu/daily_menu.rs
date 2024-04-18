@@ -51,6 +51,10 @@ impl<'a> DailyMenu<'a> {
 
         Ok(Self { date, meals })
     }
+
+    pub fn date(&self) -> NaiveDate {
+        self.date
+    }
 }
 
 #[cfg(test)]
