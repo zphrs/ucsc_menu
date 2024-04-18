@@ -58,6 +58,17 @@ impl<'a> FoodItem<'a> {
             price,
         })
     }
+
+    pub fn get_allergen_mask(&self) -> AllergenFlags {
+        self.allergen_info.into()
+    }
+}
+
+impl Into<AllergenFlags> for Vec<Allergens> {
+    fn into(self) -> AllergenFlags {
+        self.into_iter()
+            .fold(AllergenFlags::empty(), |acc, x| acc | x.into())
+    }
 }
 
 #[graphql_object]
@@ -71,10 +82,6 @@ impl<'a> FoodItem<'a> {
     }
     pub fn price(&self) -> Option<String> {
         self.price.as_ref().map(Money::to_string)
-    }
-
-    pub fn contains_allergen(&self, allergen: Allergens) -> bool {
-        self.allergen_info.contains(allergen.into())
     }
 }
 

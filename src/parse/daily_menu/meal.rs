@@ -5,7 +5,10 @@ use scraper::{element_ref::Select, selectable::Selectable};
 
 use crate::{parse::text_from_selection::text_from_selection, static_selector};
 
-use super::{allergens::Allergens, food_item::FoodItem};
+use super::{
+    allergens::{AllergenFlags, Allergens},
+    food_item::FoodItem,
+};
 use crate::parse::Error;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, GraphQLEnum)]
@@ -111,15 +114,33 @@ impl<'a> MealSection<'a> {
         self.name
     }
 
-    pub fn food_items(&self, contains_allergen: Option<Allergens>) -> Vec<FoodItem<'a>> {
-        let Some(allergen) = contains_allergen else {
-            // return self.food_items.iter()
-            return self.food_items.clone();
-        };
-
+    pub fn food_items(
+        &self,
+        contains_all_allergens: Option<Vec<Allergens>>,
+        excludes_all_allergens: Option<Vec<Allergens>>,
+        contains_any_allergens: Option<Vec<Allergens>>,
+    ) -> Vec<FoodItem<'a>> {
+        let contains_mask: Option<AllergenFlags> = contains_all_allergens.map(|x| x.into());
+        let excludes_mask: Option<AllergenFlags> = excludes_all_allergens.map(|x| x.into());
+        let contains_any_mask: Option<AllergenFlags> = contains_any_allergens.map(|x| x.into());
         self.food_items
             .iter()
-            .filter(|food_item| food_item.contains_allergen(allergen))
+            .filter(|food_item| {
+                let mut out = false;
+                let mask = food_item.get_allergen_mask();
+                if let Some(contains) = contains_mask {
+                    out = mask.contains(contains);
+                } else {
+                    out = true;
+                };
+                if let Some(excludes) = excludes_mask {
+                    out = out && !mask.intersects(excludes);
+                };
+                if let Some(contains_any) = contains_any_mask {
+                    out = out && mask.intersects(contains_any);
+                };
+                out
+            })
             .cloned()
             .collect()
     }
@@ -204,8 +225,9 @@ mod tests {
                 mealType
                 sections {
                     name
-                    foodItems(containsAllergen: VEGAN) {
-                        name
+                    foodItems(containsAnyAllergens: [VEGAN, VEGETARIAN], excludesAllAllergens: [MILK]) {
+                        name,
+                        allergens
                     }
                 }
             }
