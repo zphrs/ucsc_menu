@@ -168,6 +168,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-targets 0.52.4",
 ]
@@ -729,6 +730,7 @@ checksum = "943306315b1a7a03d27af9dfb0c288d9f4da8830c17df4bceb7d50a47da0982c"
 dependencies = [
  "async-trait",
  "auto_enums",
+ "chrono",
  "fnv",
  "futures",
  "graphql-parser",
@@ -1768,6 +1770,7 @@ dependencies = [
  "juniper_hyper",
  "log",
  "pretty_env_logger",
+ "regex",
  "reqwest",
  "rusty-money",
  "scraper",

@@ -13,12 +13,13 @@ hyper-util = { version = "0.1", features = ["tokio", "full"] }
 juniper_hyper = "0.9.0"
 pretty_env_logger = "0.5.0"
 log = "0.4.21"
-juniper = { version = "0.16.1", features = ["schema-language"] }
+juniper = { version = "0.16.1", features = ["schema-language", "chrono"] }
 reqwest = "0.12.2"
 scraper = "0.19.0"
 bitflags = "2.5.0"
 rusty-money = { version = "0.4.1", features = ["iso"] }
-chrono = "0.4.37"
+chrono = { version = "0.4.37", features = ["serde"] }
 url = "2.5.0"
 futures = "0.3.30"
 serde_json = "1.0.116"
+regex = "1.10.4"
