@@ -1,13 +1,15 @@
+use std::borrow::Cow;
+
 use super::allergens::{AllergenFlags, AllergenInfo, Allergens};
 use crate::parse::text_from_selection::{get_inner_text, text_from_selection};
-use crate::parse::Error;
+use crate::parse::{remove_excess_whitespace, Error};
 use crate::static_selector;
 use juniper::graphql_object;
 use rusty_money::{iso, Money};
 
 #[derive(Debug, Clone)]
 pub struct FoodItem<'a> {
-    name: &'a str,
+    name: Cow<'a, str>,
     allergen_info: AllergenInfo,
     price: Option<Money<'a, iso::Currency>>, // in cents
 }
@@ -28,6 +30,7 @@ impl<'a> FoodItem<'a> {
         // get name with css selector .shortmenurecipes > span
         static_selector!(NAME_SELECTOR <- ".shortmenurecipes > span");
         let name = text_from_selection(&NAME_SELECTOR, element, "foodItem", "name")?.trim_end();
+        let name: Cow<'a, str> = remove_excess_whitespace(name);
         // get allergen info with css selector td > img
         static_selector!(ALLERGEN_INFO_SELECTOR <- "td > img");
         let allergen_info =
@@ -75,8 +78,8 @@ impl<'a> FoodItem<'a> {
         self.allergen_info.into()
     }
 
-    pub fn name(&self) -> &'a str {
-        self.name
+    pub fn name(&self) -> &str {
+        &self.name
     }
     pub fn price(&self) -> Option<String> {
         self.price.as_ref().map(Money::to_string)
@@ -118,7 +121,7 @@ mod tests {
     #[tokio::test]
     async fn test_schema() {
         let x = FoodItem {
-            name: "yummy meat",
+            name: "yummy meat".into(),
             allergen_info: AllergenInfo(AllergenFlags::Egg | AllergenFlags::Sesame),
             price: None,
         };

@@ -1,9 +1,13 @@
-use std::{iter::Peekable, vec};
+use std::{borrow::Cow, iter::Peekable, sync::OnceLock, vec};
 
 use juniper::{graphql_object, GraphQLEnum, GraphQLObject};
+use regex::Regex;
 use scraper::{element_ref::Select, selectable::Selectable};
 
-use crate::{parse::text_from_selection::text_from_selection, static_selector};
+use crate::{
+    parse::{remove_excess_whitespace, text_from_selection::text_from_selection},
+    static_selector,
+};
 
 use super::{
     allergens::{AllergenFlags, Allergens},
@@ -21,7 +25,7 @@ pub enum MealType {
     Unknown, // used for when the meal type is not known (ex. when the food item is detached from a meal)
     AllDay,  // default if the above don't match
 }
-#[derive(Debug, GraphQLObject)]
+#[derive(Debug, GraphQLObject, Clone)]
 pub struct Meal<'a> {
     pub meal_type: MealType,
     pub sections: Vec<MealSection<'a>>,
@@ -100,16 +104,16 @@ impl<'a> Iterator for SectionIterator<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MealSection<'a> {
-    pub name: &'a str,
+    pub name: Cow<'a, str>,
     pub food_items: Vec<FoodItem<'a>>,
 }
 
 #[graphql_object]
 impl<'a> MealSection<'a> {
-    pub fn name(&self) -> &'a str {
-        self.name
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
     pub fn food_items(
@@ -151,6 +155,8 @@ impl<'a> MealSection<'a> {
         // trim off first and last three characters since the name looks like -- name --
         let name = &name[3..name.len() - 3];
 
+        let name = remove_excess_whitespace(name);
+
         // iterate through by peeking and calling handle_element
         let mut food_items = vec![];
         while let Some(element) = elements.peek() {
@@ -160,6 +166,7 @@ impl<'a> MealSection<'a> {
             if let Some(food_item) = Self::handle_element(*element)? {
                 food_items.push(food_item);
             }
+            elements.next();
             elements.next();
         }
         Ok(MealSection { name, food_items })
@@ -196,7 +203,7 @@ mod tests {
         assert_eq!(meal.meal_type, MealType::Breakfast);
         assert_eq!(meal.sections.len(), 3);
         // print out the names of the sections
-        println!("{:#?}", meal);
+        println!("{:#?}", meal.sections);
     }
 
     #[tokio::test]
@@ -231,6 +238,6 @@ mod tests {
         serde_json::to_string_pretty(&res).unwrap();
         // println!("{:#?}", res);
         println!("{}", serde_json::to_string_pretty(&res).unwrap());
-        panic!();
+        // panic!();
     }
 }
