@@ -1,7 +1,7 @@
 use std::{borrow::Cow, iter::Peekable, sync::OnceLock, vec};
 
 use juniper::{graphql_object, GraphQLEnum, GraphQLObject};
-use regex::Regex;
+use regex::{Regex, RegexBuilder};
 use scraper::{element_ref::Select, selectable::Selectable};
 
 use crate::{
@@ -121,6 +121,7 @@ impl<'a> MealSection<'a> {
         contains_all_allergens: Option<Vec<Allergens>>,
         excludes_all_allergens: Option<Vec<Allergens>>,
         contains_any_allergens: Option<Vec<Allergens>>,
+        name_contains: Option<String>,
     ) -> Vec<FoodItem<'a>> {
         let contains_all_mask: Option<AllergenFlags> = contains_all_allergens.map(|x| x.into());
         let excludes_all_mask: Option<AllergenFlags> = excludes_all_allergens.map(|x| x.into());
@@ -133,9 +134,22 @@ impl<'a> MealSection<'a> {
             out &= excludes_all_mask.map_or(true, |excludes_all| !mask.intersects(excludes_all));
             out
         };
+
+        let name_contains = name_contains.map(|s| {
+            RegexBuilder::new(&regex::escape(&s))
+                .case_insensitive(true)
+                .build()
+                .expect("regex using escaped input should be valid")
+        });
+
         self.food_items
             .iter()
             .filter(allergen_filter)
+            .filter(|food_item| {
+                name_contains
+                    .as_ref()
+                    .map_or(true, |pat| pat.is_match(food_item.name()))
+            })
             .cloned()
             .collect()
     }
@@ -186,6 +200,7 @@ impl<'a> MealSection<'a> {
 #[cfg(test)]
 mod tests {
     use juniper::{EmptyMutation, EmptySubscription, RootNode};
+    use serde_json::json;
 
     use super::*;
     use std::{
@@ -207,7 +222,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_schema() {
+    async fn test_graphql_allergen_filtering() {
         let html = fs::read_to_string("./src/parse/html_examples/daily_menu/meal.html").unwrap();
         let document = scraper::Html::parse_document(&html);
         let meal = Meal::from_html_element(document.root_element())
@@ -238,5 +253,63 @@ mod tests {
         // println!("{:#?}", res);
         println!("{}", serde_json::to_string_pretty(&res).unwrap());
         // panic!();
+    }
+
+    #[tokio::test]
+    async fn test_graphql_name_filtering() {
+        let html = fs::read_to_string("./src/parse/html_examples/daily_menu/meal.html").unwrap();
+        let document = scraper::Html::parse_document(&html);
+        let meal = Meal::from_html_element(document.root_element())
+            .expect("The example html should be valid");
+        let schema = RootNode::new(
+            meal,
+            EmptyMutation::<()>::new(),
+            EmptySubscription::<()>::new(),
+        );
+        // println!("{}", schema.as_sdl());
+        let query = r#"
+            {
+                mealType
+                sections {
+                    name
+                    foodItems(nameContains: "muffin") {
+                        name
+                    }
+                }
+            }
+        "#;
+        let binding = juniper::Variables::default();
+        let res = juniper::execute(query, None, &schema, &binding, &())
+            .await
+            .unwrap()
+            .0;
+        assert_eq!(
+            serde_json::to_value(res).expect("json should be valid"),
+            json!(
+                {
+                  "mealType": "BREAKFAST",
+                  "sections": [
+                    {
+                      "name": "Breakfast",
+                      "foodItems": []
+                    },
+                    {
+                      "name": "Clean Plate",
+                      "foodItems": []
+                    },
+                    {
+                      "name": "Bakery",
+                      "foodItems": [
+                        {
+                          "name": "Blueberry Muffin"
+                        },
+                        {
+                          "name": "Pumpkin Muffin"
+                        }
+                      ]
+                    }
+                  ]
+            })
+        )
     }
 }
