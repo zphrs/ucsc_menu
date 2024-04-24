@@ -128,9 +128,9 @@ impl<'a> MealSection<'a> {
         let allergen_filter = |food_item: &&FoodItem<'a>| {
             let mask = food_item.get_allergen_mask();
             let mut out = true;
-            out &= contains_all_mask.is_some_and(|contains_all| mask.contains(contains_all));
-            out &= contains_any_mask.is_some_and(|contains_any| mask.intersects(contains_any));
-            out &= excludes_all_mask.is_some_and(|excludes_all| !mask.intersects(excludes_all));
+            out &= contains_all_mask.map_or(true, |contains_all| mask.contains(contains_all));
+            out &= contains_any_mask.map_or(true, |contains_any| mask.intersects(contains_any));
+            out &= excludes_all_mask.map_or(true, |excludes_all| !mask.intersects(excludes_all));
             out
         };
         self.food_items
@@ -235,7 +235,6 @@ mod tests {
             .await
             .unwrap()
             .0;
-        serde_json::to_string_pretty(&res).unwrap();
         // println!("{:#?}", res);
         println!("{}", serde_json::to_string_pretty(&res).unwrap());
         // panic!();

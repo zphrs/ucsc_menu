@@ -1,40 +1,44 @@
 use scraper::Html;
 
-use crate::parse::menu_page::DailyMenu;
 use crate::parse::error::Result;
+use crate::parse::menu_page::DailyMenu;
 use crate::parse::Error;
 
-const NUM_MEALS: usize = 10;
+pub const NUM_MEALS: usize = 10;
 
 #[derive(Debug)]
 pub struct LocationData<'a> {
-    meals: [Option<DailyMenu<'a>>; NUM_MEALS], // keep track of up to 10 days of meals
+    menus: [Option<DailyMenu<'a>>; NUM_MEALS], // keep track of up to 10 days of meals
 }
 
 const ARRAY_REPEAT_VALUE: std::option::Option<DailyMenu<'static>> = None;
 impl<'a> LocationData<'a> {
     pub fn new() -> Self {
         Self {
-            meals: [ARRAY_REPEAT_VALUE; NUM_MEALS],
+            menus: [ARRAY_REPEAT_VALUE; NUM_MEALS],
         }
     }
 
-    pub fn empty(&self) -> bool {
-        self.meals.iter().all(|x| x.is_none())
+    pub fn is_empty(&self) -> bool {
+        self.menus.iter().all(|x| x.is_none())
     }
 
     pub fn clear(&mut self) {
-        self.meals.iter_mut().for_each(|x| *x = None);
+        self.menus.iter_mut().for_each(|x| *x = None);
     }
 
-    pub fn meals_iter(&mut self) -> impl Iterator<Item = &mut DailyMenu<'a>> {
-        self.meals
+    pub fn menus_mut(&mut self) -> impl Iterator<Item = &mut DailyMenu<'a>> {
+        self.menus
             .iter_mut()
             .filter_map(|x| if let Some(meal) = x { Some(meal) } else { None })
     }
 
+    pub fn menus(&self) -> impl Iterator<Item = &DailyMenu<'a>> {
+        self.menus.iter().filter_map(|x| x.as_ref())
+    }
+
     pub fn remove_meals_before(&mut self, date: chrono::NaiveDate) {
-        for meal in self.meals.iter_mut() {
+        for meal in self.menus.iter_mut() {
             if let Some(m) = meal {
                 if m.date() < date {
                     *meal = None;
@@ -46,13 +50,13 @@ impl<'a> LocationData<'a> {
     pub fn add_meal(&mut self, html: &'a Html) -> Result<()> {
         let menu = DailyMenu::from_html_element(html.root_element())?;
 
-        self.meals
+        self.menus
             .iter_mut()
             .find(|x| x.is_none())
             .ok_or_else(|| Error::internal_error("No empty slots for meal"))?
             .replace(menu);
 
-        self.meals.sort();
+        self.menus.sort();
 
         Ok(())
     }
@@ -70,17 +74,17 @@ mod tests {
         );
         let mut location_data = LocationData::new();
 
-        assert!(location_data.empty());
+        assert!(location_data.is_empty());
 
         location_data.add_meal(&html).unwrap();
 
-        assert!(!location_data.empty());
-        assert_eq!(location_data.meals_iter().count(), 1);
+        assert!(!location_data.is_empty());
+        assert_eq!(location_data.menus_mut().count(), 1);
         assert_eq!(
-            location_data.meals_iter().next().unwrap().date(),
+            location_data.menus_mut().next().unwrap().date(),
             chrono::NaiveDate::from_ymd_opt(2024, 4, 5).unwrap()
         );
         location_data.clear();
-        assert!(location_data.empty());
+        assert!(location_data.is_empty());
     }
 }

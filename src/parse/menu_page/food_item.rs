@@ -101,7 +101,7 @@ mod tests {
             std::fs::read_to_string("./src/parse/html_examples/daily_menu/food_item.html").unwrap(); // file system should be reliable
         let doc = scraper::Html::parse_document(&html);
         let food_item = FoodItem::from_html_element(doc.root_element())
-            .expect("The example html should be valid");
+            .expect("The  example html should be valid");
         assert_eq!(food_item.name(), "Cream Cheese pck");
         assert!(food_item.allergen_info.contains(AllergenFlags::Vegetarian));
         assert!(food_item.allergen_info.contains(AllergenFlags::Milk));
