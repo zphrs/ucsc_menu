@@ -4,7 +4,7 @@ use crate::parse::error::Result;
 use crate::parse::menu_page::DailyMenu;
 use crate::parse::Error;
 
-pub const NUM_MEALS: usize = 10;
+pub const NUM_MEALS: usize = 30;
 
 #[derive(Debug)]
 pub struct LocationData<'a> {

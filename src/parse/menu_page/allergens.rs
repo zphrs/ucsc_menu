@@ -40,8 +40,8 @@ impl AllergenInfo {
             ));
         }
         // chop off the ".gif" suffix
-        let img_url = &img_url[..img_url.len() - SUFFIX.len()];
-        let res = match img_url {
+        let img_url = img_url[..img_url.len() - SUFFIX.len()].to_lowercase();
+        let res = match img_url.as_str() {
             "eggs" => AllergenFlags::Egg,
             "fish" => AllergenFlags::Fish,
             "gluten" => AllergenFlags::GlutenFriendly,
@@ -57,7 +57,9 @@ impl AllergenInfo {
             "halal" => AllergenFlags::Halal,
             "shellfish" => AllergenFlags::Shellfish,
             "sesame" => AllergenFlags::Sesame,
-            _ => Err(Error::html_parse_error("Unknown allergen image url"))?,
+            _ => Err(Error::HtmlParse(format!(
+                "Unknown allergen image url: {img_url}"
+            )))?,
         };
         Ok(res)
     }

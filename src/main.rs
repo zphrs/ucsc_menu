@@ -4,6 +4,7 @@
 mod cache;
 mod fetch;
 mod parse;
+mod transpose;
 
 use std::{convert::Infallible, env, error::Error, net::SocketAddr, sync::Arc};
 

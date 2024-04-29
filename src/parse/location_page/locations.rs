@@ -1,3 +1,6 @@
+use std::slice::{Iter, IterMut};
+use std::sync::Arc;
+
 use chrono::NaiveDate;
 use juniper::{graphql_object, GraphQLInputObject};
 use scraper::Html;
@@ -48,13 +51,17 @@ impl<'a> Location<'a> {
         Self(LocationData::new(), location_meta)
     }
 
-    pub fn add_meals(&mut self, html: Vec<&'a Html>) -> Result<(), Error> {
+    pub fn add_meals<'b: 'a>(&mut self, html: impl Iterator<Item = &'b Html>) -> Result<(), Error> {
         // TODO: instead of immediately clearing, diff the similar meals first
         self.clear();
         for html in html {
             self.0.add_meal(html)?;
         }
         Ok(())
+    }
+
+    pub fn metadata(&self) -> &LocationMeta {
+        &self.1
     }
 
     pub fn hydrated(&self) -> bool {
@@ -65,7 +72,7 @@ impl<'a> Location<'a> {
         self.0.clear();
     }
 }
-
+#[derive(Debug)]
 pub struct Locations<'a> {
     locations: Vec<Location<'a>>,
 }
@@ -91,15 +98,23 @@ impl<'a> Locations<'a> {
         Ok(Self { locations })
     }
 
+    pub fn iter_mut(&mut self) -> IterMut<Location<'a>> {
+        self.locations.iter_mut()
+    }
+
+    pub fn iter(&self) -> Iter<Location<'a>> {
+        self.locations.iter()
+    }
+
     pub fn add_meals<'b: 'a>(
         &mut self,
-        html: Vec<&'b Html>,
-        location_meta: LocationMeta,
+        html: impl Iterator<Item = &'b Html>,
+        location_meta: &LocationMeta,
     ) -> Result<(), Error> {
         let location = self
             .locations
             .iter_mut()
-            .find(|x| x.1 == location_meta)
+            .find(|x| x.1 == *location_meta)
             .ok_or_else(|| {
                 Error::Internal(format!(
                     "Location with id {} is either already hydrated or does not exist. Clear all locations and try again.",
@@ -144,7 +159,8 @@ mod tests {
             .parse()
             .expect("url should be valid");
         let mut location = Location::new(LocationMeta::from_url(url).unwrap());
-        location.add_meals(vec![&html]).unwrap();
+        let v = vec![html];
+        location.add_meals(v.iter()).unwrap();
         assert!(location.hydrated());
         let root = RootNode::new(
             location,
@@ -177,6 +193,5 @@ mod tests {
             .await
             .unwrap();
         println!("{}", serde_json::to_string_pretty(&res).unwrap());
-        panic!();
     }
 }
