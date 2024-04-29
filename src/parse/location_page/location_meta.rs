@@ -1,17 +1,24 @@
 use crate::parse::Error;
 use crate::static_selector;
 use url::Url;
-
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LocationMeta {
     name: String,
     id: String, // ex. 40 for 9/10
     url: Url,
 }
 
-impl PartialEq for LocationMeta {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+impl serde::Serialize for LocationMeta {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.url().as_str().serialize(serializer)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for LocationMeta {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let str = String::deserialize(deserializer)?;
+        let url = Url::parse(&str).map_err(serde::de::Error::custom)?;
+        Ok(Self::from_url(url).map_err(serde::de::Error::custom)?)
     }
 }
 
@@ -89,5 +96,22 @@ mod tests {
             .expect("The example html should be valid");
         assert_eq!(location.name, "College Nine/John R. Lewis Dining Hall");
         assert_eq!(location.id, "40");
+    }
+
+    #[test]
+    fn test_serde() {
+        let x = LocationMeta {
+            name: "College Nine/John R. Lewis Dining Hall".into(),
+            id: "40".into(),
+            url: "https://nutrition.sa.ucsc.edu/shortmenu.aspx?\
+            sName=UC+Santa+Cruz+Dining&\
+            locationNum=40&\
+            locationName=College+Nine/John+R.+Lewis+Dining+Hall&naFlag=1"
+                .parse()
+                .unwrap(),
+        };
+        let serialized = serde_json::to_string(&x).unwrap();
+        let deserialized: LocationMeta = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(x, deserialized);
     }
 }

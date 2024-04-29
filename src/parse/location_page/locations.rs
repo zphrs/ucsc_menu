@@ -12,7 +12,7 @@ use super::location_meta::LocationMeta;
 
 use super::location_data::{LocationData, NUM_MEALS};
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Location<'a>(LocationData<'a>, LocationMeta);
 
 #[derive(GraphQLInputObject, Debug)]
@@ -72,7 +72,7 @@ impl<'a> Location<'a> {
         self.0.clear();
     }
 }
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Locations<'a> {
     locations: Vec<Location<'a>>,
 }

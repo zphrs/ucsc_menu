@@ -98,11 +98,8 @@ mod tests {
             "Time taken to parse today's menus: {:?}",
             start_time.elapsed()
         );
-        let start_dates = locations
-            .iter()
-            .map(|x| x.menus(None)[0].date() + chrono::Duration::days(1)) // already have today's menu
-            .collect::<Vec<_>>();
-        let week_menus: FuturesUnordered<_> = date_iter(start_dates[0], 10)
+        let start_date = chrono::Utc::now().date_naive() - chrono::Duration::days(1);
+        let week_menus: FuturesUnordered<_> = date_iter(start_date, 10)
             .map(|x| fetch_menus_on_date(&client, &locations, Some(x)))
             .collect();
         let week_menus: Vec<_> = week_menus.collect().await;
@@ -131,8 +128,10 @@ mod tests {
         println!("Time taken to add all menus: {:?}", start_time.elapsed());
         // println!("{:#?}", locations);
         // save the locations to a file
-        let locations = format!("{:#?}", locations);
-        std::fs::write("locations.txt", locations).unwrap();
+        let locations = serde_json::to_string(&locations).unwrap();
+        std::fs::write("locations.json", &locations).unwrap();
+        // test that the locations can be deserialized
+        let _locations: Locations = serde_json::from_str(&locations).unwrap();
     }
 
     #[tokio::test]
