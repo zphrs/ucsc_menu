@@ -4,7 +4,7 @@ use crate::parse::Error;
 use bitflags::bitflags;
 use juniper::GraphQLEnum;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub struct AllergenInfo(pub(super) AllergenFlags);
 
 impl AllergenInfo {
@@ -74,6 +74,19 @@ impl AllergenInfo {
     }
 }
 
+impl serde::Serialize for AllergenInfo {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.bits().serialize(serializer)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for AllergenInfo {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let bits = u16::deserialize(deserializer)?;
+        Ok(Self(AllergenFlags::from_bits(bits).unwrap_or_default()))
+    }
+}
+
 impl Display for AllergenInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
@@ -87,7 +100,7 @@ impl From<&AllergenInfo> for Vec<&'static str> {
 }
 
 bitflags! {
-    #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
     pub struct AllergenFlags: u16 {
         const Egg = 1;
         const Fish = 1 << 1;
@@ -317,5 +330,24 @@ mod tests {
         }
         // ensure that all the allergen flags are picked up properly
         assert!(all_allergen_flags.is_all());
+    }
+
+    #[test]
+    fn test_serde() {
+        let allergen_info = AllergenInfo(AllergenFlags::all());
+        let serialized = serde_json::to_string(&allergen_info).unwrap();
+        let deserialized: AllergenInfo = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(allergen_info, deserialized);
+
+        let allergen_info = AllergenInfo(AllergenFlags::empty());
+        let serialized = serde_json::to_string(&allergen_info).unwrap();
+        let deserialized: AllergenInfo = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(allergen_info, deserialized);
+
+        let mut allergen_info = AllergenInfo(AllergenFlags::empty());
+        allergen_info.0.insert(AllergenFlags::Egg);
+        let serialized = serde_json::to_string(&allergen_info).unwrap();
+        let deserialized: AllergenInfo = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(allergen_info, deserialized);
     }
 }

@@ -8,7 +8,7 @@ use crate::static_selector;
 
 use regex::Regex;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DailyMenu<'a> {
     // graphql representation: yyyy-MM-dd
     date: NaiveDate,

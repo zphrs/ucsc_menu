@@ -1,17 +1,19 @@
 use std::borrow::Cow;
 
 use super::allergens::{AllergenFlags, AllergenInfo, Allergens};
+use super::money::Usd;
 use crate::parse::text_from_selection::{get_inner_text, text_from_selection};
 use crate::parse::{remove_excess_whitespace, Error};
 use crate::static_selector;
 use juniper::graphql_object;
 use rusty_money::{iso, Money};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FoodItem<'a> {
     name: Cow<'a, str>,
     allergen_info: AllergenInfo,
-    price: Option<Money<'a, iso::Currency>>, // in cents
+    #[serde(skip_serializing, skip_deserializing)]
+    price: Option<Usd<'a>>, // in cents
 }
 
 impl PartialEq for FoodItem<'_> {
@@ -46,7 +48,7 @@ impl<'a> FoodItem<'a> {
                 None
             } else {
                 let price = &price[1..]; // remove the dollar sign
-                Some(Money::from_str(price, iso::USD)?)
+                Some(Usd::from_str(price)?)
             }
         } else {
             None
@@ -82,7 +84,7 @@ impl<'a> FoodItem<'a> {
         &self.name
     }
     pub fn price(&self) -> Option<String> {
-        self.price.as_ref().map(Money::to_string)
+        self.price.as_ref().map(Usd::to_string)
     }
 }
 
@@ -92,6 +94,18 @@ mod tests {
 
     use super::*;
     use crate::parse::menu_page::allergens::{AllergenFlags, AllergenInfo};
+
+    #[test]
+    fn test_serde() {
+        let x = FoodItem {
+            name: "yummy meat".into(),
+            allergen_info: AllergenInfo(AllergenFlags::Egg | AllergenFlags::Sesame),
+            price: Usd::from_str("5.00").ok(),
+        };
+        let serialized = serde_json::to_string(&x).unwrap();
+        let deserialized: FoodItem = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(x, deserialized);
+    }
 
     #[test]
     fn test_food_item_from_html_element() {
@@ -110,10 +124,7 @@ mod tests {
             .contains(AllergenFlags::GlutenFriendly));
 
         // make sure price is Some(Money::from_str("1.00", iso::USD).unwrap())
-        assert_eq!(
-            food_item.price,
-            Some(Money::from_str("1.00", iso::USD).unwrap())
-        );
+        assert_eq!(food_item.price, Some(Usd::from_str("1.00").unwrap()));
 
         // double check meal type and category
     }

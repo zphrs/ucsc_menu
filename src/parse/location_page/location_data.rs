@@ -4,9 +4,9 @@ use crate::parse::error::Result;
 use crate::parse::menu_page::DailyMenu;
 use crate::parse::Error;
 
-pub const NUM_MEALS: usize = 30;
+pub const NUM_MEALS: usize = 10;
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct LocationData<'a> {
     menus: [Option<DailyMenu<'a>>; NUM_MEALS], // keep track of up to 10 days of meals
 }

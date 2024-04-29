@@ -15,7 +15,7 @@ use super::{
 };
 use crate::parse::Error;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, GraphQLEnum)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, GraphQLEnum, serde::Serialize, serde::Deserialize)]
 pub enum MealType {
     Breakfast,
     Lunch,
@@ -25,7 +25,7 @@ pub enum MealType {
     Unknown, // used for when the meal type is not known (ex. when the food item is detached from a meal)
     AllDay,  // default if the above don't match
 }
-#[derive(Debug, GraphQLObject, Clone)]
+#[derive(Debug, GraphQLObject, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Meal<'a> {
     pub meal_type: MealType,
     pub sections: Vec<MealSection<'a>>,
@@ -104,7 +104,7 @@ impl<'a> Iterator for SectionIterator<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MealSection<'a> {
     pub name: Cow<'a, str>,
     pub food_items: Vec<FoodItem<'a>>,

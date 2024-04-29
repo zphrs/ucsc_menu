@@ -51,11 +51,8 @@ pub async fn fetch_menus_on_date(
     .await
 }
 
-pub fn date_iter(
-    start: chrono::NaiveDate,
-    end: chrono::NaiveDate,
-) -> impl Iterator<Item = chrono::NaiveDate> {
-    (0..(end - start).num_days()).map(move |x| start + chrono::Duration::days(x))
+pub fn date_iter(start: chrono::NaiveDate, count: i64) -> impl Iterator<Item = chrono::NaiveDate> {
+    (0..count).map(move |x| start + chrono::Duration::days(x))
 }
 
 #[cfg(test)]
@@ -65,17 +62,31 @@ mod tests {
     use crate::{parse::Locations, transpose::transposed};
 
     use super::*;
+    use futures::{stream::FuturesUnordered, StreamExt};
     use url::Url;
 
     #[tokio::test]
     async fn test_fetch_locations_page() {
+        let start_time = std::time::Instant::now();
         let client = make_client();
         let page = fetch_locations_page(&client).await.unwrap();
+        println!(
+            "Time taken to get locations page: {:?}",
+            start_time.elapsed()
+        );
         let parsed = scraper::Html::parse_document(&page);
         let mut locations: Locations = Locations::from_html_element(parsed.root_element()).unwrap();
+        println!(
+            "Time taken to parse locations page: {:?}",
+            start_time.elapsed()
+        );
         let todays_menus = fetch_menus_on_date(&client, &mut locations, None)
             .await
             .unwrap();
+        println!(
+            "Time taken to get today's menus: {:?}",
+            start_time.elapsed()
+        );
         let parsed_menus = todays_menus
             .iter()
             .map(|x| scraper::Html::parse_document(x))
@@ -83,19 +94,23 @@ mod tests {
         for (location, html) in locations.iter_mut().zip(parsed_menus.iter()) {
             location.add_meals(vec![html].iter().map(|x| *x)).unwrap();
         }
+        println!(
+            "Time taken to parse today's menus: {:?}",
+            start_time.elapsed()
+        );
         let start_dates = locations
             .iter()
-            .map(|x| x.menus(None)[0].date())
+            .map(|x| x.menus(None)[0].date() + chrono::Duration::days(1)) // already have today's menu
             .collect::<Vec<_>>();
-        let end_dates = start_dates
-            .iter()
-            .map(|x| *x + chrono::Duration::days(20))
-            .collect::<Vec<_>>();
-        let week_menus = futures::future::join_all(
-            date_iter(start_dates[0], end_dates[0])
-                .map(|x| fetch_menus_on_date(&client, &locations, Some(x))),
-        )
-        .await;
+        let week_menus: FuturesUnordered<_> = date_iter(start_dates[0], 10)
+            .map(|x| fetch_menus_on_date(&client, &locations, Some(x)))
+            .collect();
+        let week_menus: Vec<_> = week_menus.collect().await;
+        println!(
+            "Time taken to fetch all menus: {:?}. Number of menus: {}",
+            start_time.elapsed(),
+            week_menus.len() * locations.iter().len()
+        );
         let parsed_week_menus = week_menus
             .iter()
             .map_while(|x| {
@@ -108,10 +123,12 @@ mod tests {
                 )
             })
             .collect::<Vec<_>>();
+        println!("Time taken to parse all menus: {:?}", start_time.elapsed());
         let parsed_week_menus = transposed(parsed_week_menus);
         for (location, htmls) in locations.iter_mut().zip(parsed_week_menus.iter()) {
             location.add_meals(htmls.iter()).unwrap();
         }
+        println!("Time taken to add all menus: {:?}", start_time.elapsed());
         // println!("{:#?}", locations);
         // save the locations to a file
         let locations = format!("{:#?}", locations);
