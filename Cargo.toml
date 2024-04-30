@@ -3,18 +3,21 @@ name = "ucsc_menu"
 version = "0.1.0"
 edition = "2021"
 
+[profile.test]
+opt-level = 3
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 hyper = { version = "1", features = ["full"] }
-tokio = { version = "1", features = ["full", "rt-multi-thread"] }
+tokio = { version = "1", features = ["full", "rt-multi-thread", "tracing"] }
 http-body-util = "0.1"
 hyper-util = { version = "0.1", features = ["tokio", "full"] }
 juniper_hyper = "0.9.0"
 pretty_env_logger = "0.5.0"
 log = "0.4.21"
 juniper = { version = "0.16.1", features = ["schema-language", "chrono"] }
-reqwest = "0.12.2"
+reqwest = { version = "0.12.2", features = ["gzip"] }
 scraper = "0.19.0"
 bitflags = "2.5.0"
 rusty-money = { version = "0.4.1", features = ["iso"] }
@@ -25,3 +28,18 @@ serde_json = "1.0.116"
 regex = "1.10.4"
 serde = "1.0.199"
 serde_with = "3.8.1"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+tracing-appender = "0.2.3"
+console-subscriber = "0.2.0"
+governor = "0.6.3"
+
+[dev-dependencies]
+opentelemetry = "0.22.0"
+reqwest-middleware = "0.3.0"
+reqwest-retry = "0.5.0"
+reqwest-tracing = "0.5.0"
+task-local-extensions = "0.1.4"
+tracing = "0.1.40"
+tracing-opentelemetry = "0.23.0"
+tracing-subscriber = "0.3.18"

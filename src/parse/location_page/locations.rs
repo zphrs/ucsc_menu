@@ -77,6 +77,21 @@ pub struct Locations<'a> {
     locations: Vec<Location<'a>>,
 }
 
+#[graphql_object]
+impl<'a> Locations<'a> {
+    pub fn locations(&self, ids: Option<Vec<String>>) -> Vec<&Location<'a>> {
+        if let Some(ids) = &ids {
+            let ids: Vec<&str> = ids.iter().map(|x| x.as_str()).collect();
+            self.locations
+                .iter()
+                .filter(|location| ids.contains(&location.1.id()))
+                .collect()
+        } else {
+            self.locations.iter().collect()
+        }
+    }
+}
+
 impl<'a> Locations<'a> {
     pub fn from_html_element(element: scraper::ElementRef) -> Result<Self, Error> {
         static_selector!(LOCATION_CHOICES_SELECTOR <- "div#locationchoices");
@@ -185,6 +200,35 @@ mod tests {
                             }
                         }
                     }
+                }
+            }
+        "#;
+        let binding: Variables = Default::default();
+        let res = juniper::execute(query, None, &root, &binding, &())
+            .await
+            .unwrap();
+        println!("{}", serde_json::to_string_pretty(&res).unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_locations_schema() {
+        let html =
+            fs::read_to_string("./src/parse/html_examples/locations/locations.html").unwrap();
+        let document = scraper::Html::parse_document(&html);
+        let locations = Locations::from_html_element(document.root_element())
+            .expect("The example html should be valid");
+        assert_eq!(locations.locations.len(), 14);
+        let root = RootNode::new(
+            locations,
+            EmptyMutation::<()>::new(),
+            EmptySubscription::<()>::new(),
+        );
+        // println!("{}", root.as_sdl());
+        let query = r#"
+            {
+                locations {
+                    id
+                    name
                 }
             }
         "#;

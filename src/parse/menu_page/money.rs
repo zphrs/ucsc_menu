@@ -50,7 +50,7 @@ mod tests {
 
     #[test]
     fn test_usd_deserialize() {
-        let deserialized: Usd = serde_json::from_str("\"5.00\"").unwrap();
+        let deserialized: Usd = serde_json::from_str("\"$5.00\"").unwrap();
         assert_eq!(deserialized.to_string(), "$5.00");
     }
 

@@ -61,7 +61,7 @@ impl<'a> DailyMenu<'a> {
         let date_str = element
             .select(&DATE_SELECTOR)
             .next()
-            .ok_or_else(|| Error::html_parse_error("Date field not found"))?
+            .ok_or_else(|| Error::HtmlParse(format!("Date field not found: {element:#?}")))?
             .attr("value")
             .ok_or_else(|| Error::html_parse_error("No value on date field"))?;
 

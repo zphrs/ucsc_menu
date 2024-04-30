@@ -1,5 +1,18 @@
+use std::{
+    cell::OnceCell,
+    num::NonZeroU32,
+    sync::{Arc, OnceLock},
+    time::Duration,
+};
+
 use futures::future::TryJoinAll;
+use governor::{
+    clock::{QuantaClock, QuantaInstant},
+    middleware::NoOpMiddleware,
+    state::InMemoryState,
+};
 use reqwest::{Client, Error as RequestError};
+use tracing::{instrument, trace};
 
 use crate::parse::{LocationMeta, Locations};
 
@@ -12,15 +25,39 @@ pub async fn fetch_locations_page(client: &reqwest::Client) -> Result<String, Re
 pub fn make_client() -> reqwest::Client {
     Client::builder()
         .danger_accept_invalid_certs(true)
+        .gzip(true)
         .build()
-        .expect("error building client")
+        .expect("client creation should succeed")
 }
 
+static RATE_LIMIT: u32 = 20;
+static DELAY_JITTER: u64 = 2;
+static RATE_LIMITER: OnceLock<
+    governor::RateLimiter<
+        governor::state::NotKeyed,
+        InMemoryState,
+        QuantaClock,
+        NoOpMiddleware<QuantaInstant>,
+    >,
+> = OnceLock::new();
+#[instrument(skip(client, location_meta, date), fields(
+    // `%` serializes the peer IP addr with `Display`
+    id = %location_meta.id(),
+    date = %date.ok_or_else(|| "No date provided").unwrap_or_default().format("%m/%d/%Y"),
+))]
 pub async fn fetch_location_page(
     client: &reqwest::Client,
     location_meta: &LocationMeta,
     date: Option<chrono::NaiveDate>,
-) -> Result<String, RequestError> {
+) -> Result<(String, scraper::Html), RequestError> {
+    let rate_limiter = RATE_LIMITER.get_or_init(|| {
+        governor::RateLimiter::direct(governor::Quota::per_second(
+            NonZeroU32::new(RATE_LIMIT).unwrap(),
+        ))
+    });
+    let retry_jitter = governor::Jitter::new(Duration::ZERO, Duration::from_secs(DELAY_JITTER));
+    rate_limiter.until_ready_with_jitter(retry_jitter).await;
+
     static COOKIES: &str = "WebInaCartDates=;  WebInaCartMeals=; WebInaCartQtys=; WebInaCartRecipes=; WebInaCartLocation=";
     let id = location_meta.id();
     let cookies = format!("{COOKIES}{id}");
@@ -29,20 +66,21 @@ pub async fn fetch_location_page(
         url.query_pairs_mut()
             .append_pair("dtdate", date.format("%m/%d/%Y").to_string().as_str());
     }
-    client
-        .get(url)
-        .header("Cookie", cookies)
-        .send()
-        .await?
-        .text()
-        .await
+    // println!("Fetching location page for\t{}", location_meta.name());
+    let res = client.get(url).header("Cookie", cookies).send().await?;
+    let start = std::time::Instant::now();
+    let text = res.text().await?;
+    println!("Got text of location page in \t {:?}", start.elapsed());
+    // gzip decode
+    let html = scraper::Html::parse_document(&text);
+    Ok((text, html))
 }
 
 pub async fn fetch_menus_on_date(
     client: &reqwest::Client,
     locations: &Locations<'_>,
     date: Option<chrono::NaiveDate>,
-) -> Result<Vec<String>, RequestError> {
+) -> Result<Vec<(String, scraper::Html)>, RequestError> {
     futures::future::try_join_all(
         locations
             .iter()
@@ -63,10 +101,23 @@ mod tests {
 
     use super::*;
     use futures::{stream::FuturesUnordered, StreamExt};
+    use tracing::subscriber;
     use url::Url;
 
-    #[tokio::test]
+    fn setup_tracing() {
+        // let file_appender = tracing_appender::rolling::hourly("./", "fetch_locations.log");
+        let subscriber = tracing_subscriber::fmt()
+            .compact()
+            .with_max_level(tracing::Level::DEBUG)
+            // .with_writer(file_appender)
+            .with_target(false)
+            .finish();
+        tracing::subscriber::set_global_default(subscriber).unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn test_fetch_locations_page() {
+        // setup_tracing();
         let start_time = std::time::Instant::now();
         let client = make_client();
         let page = fetch_locations_page(&client).await.unwrap();
@@ -76,35 +127,14 @@ mod tests {
         );
         let parsed = scraper::Html::parse_document(&page);
         let mut locations: Locations = Locations::from_html_element(parsed.root_element()).unwrap();
-        println!(
-            "Time taken to parse locations page: {:?}",
-            start_time.elapsed()
-        );
-        let todays_menus = fetch_menus_on_date(&client, &mut locations, None)
-            .await
-            .unwrap();
-        println!(
-            "Time taken to get today's menus: {:?}",
-            start_time.elapsed()
-        );
-        let parsed_menus = todays_menus
-            .iter()
-            .map(|x| scraper::Html::parse_document(x))
-            .collect::<Vec<_>>();
-        for (location, html) in locations.iter_mut().zip(parsed_menus.iter()) {
-            location.add_meals(vec![html].iter().map(|x| *x)).unwrap();
-        }
-        println!(
-            "Time taken to parse today's menus: {:?}",
-            start_time.elapsed()
-        );
-        let start_date = chrono::Utc::now().date_naive() - chrono::Duration::days(1);
+        println!("Time taken to parse locations:\t{:?}", start_time.elapsed());
+        let start_date = chrono::Utc::now().date_naive() - chrono::Duration::days(1); // subtract one day to make sure we get today's menu due to timezones
         let week_menus: FuturesUnordered<_> = date_iter(start_date, 10)
             .map(|x| fetch_menus_on_date(&client, &locations, Some(x)))
             .collect();
         let week_menus: Vec<_> = week_menus.collect().await;
         println!(
-            "Time taken to fetch all menus: {:?}. Number of menus: {}",
+            "Time taken to fetch all menus:\t{:?}. Number of menus: {}",
             start_time.elapsed(),
             week_menus.len() * locations.iter().len()
         );
@@ -115,17 +145,17 @@ mod tests {
                     x.as_ref()
                         .ok()?
                         .iter()
-                        .map(|y| scraper::Html::parse_document(y))
+                        .map(|y| y.1.clone())
                         .collect::<Vec<_>>(),
                 )
             })
             .collect::<Vec<_>>();
-        println!("Time taken to parse all menus: {:?}", start_time.elapsed());
+        println!("Time taken to parse all menus:\t{:?}", start_time.elapsed());
         let parsed_week_menus = transposed(parsed_week_menus);
         for (location, htmls) in locations.iter_mut().zip(parsed_week_menus.iter()) {
             location.add_meals(htmls.iter()).unwrap();
         }
-        println!("Time taken to add all menus: {:?}", start_time.elapsed());
+        println!("Time taken to add all menus:\t{:?}", start_time.elapsed());
         // println!("{:#?}", locations);
         // save the locations to a file
         let locations = serde_json::to_string(&locations).unwrap();
@@ -147,6 +177,6 @@ mod tests {
         let page = fetch_location_page(&client, &location_meta, None)
             .await
             .unwrap();
-        println!("{}", page);
+        println!("{}", page.0);
     }
 }
