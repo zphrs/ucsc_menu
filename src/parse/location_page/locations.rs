@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::slice::{Iter, IterMut};
 use std::sync::Arc;
 
@@ -12,7 +13,7 @@ use super::location_meta::LocationMeta;
 
 use super::location_data::{LocationData, NUM_MEALS};
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct Location<'a>(LocationData<'a>, LocationMeta);
 
 #[derive(GraphQLInputObject, Debug)]
@@ -51,10 +52,13 @@ impl<'a> Location<'a> {
         Self(LocationData::new(), location_meta)
     }
 
-    pub fn add_meals<'b: 'a>(&mut self, html: impl Iterator<Item = &'b Html>) -> Result<(), Error> {
+    pub fn add_meals<'b: 'a>(
+        &mut self,
+        htmls: impl Iterator<Item = &'b Html>,
+    ) -> Result<(), Error> {
         // TODO: instead of immediately clearing, diff the similar meals first
         self.clear();
-        for html in html {
+        for html in htmls {
             self.0.add_meal(html)?;
         }
         Ok(())
@@ -72,7 +76,7 @@ impl<'a> Location<'a> {
         self.0.clear();
     }
 }
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Default, PartialEq, Eq)]
 pub struct Locations<'a> {
     locations: Vec<Location<'a>>,
 }
@@ -113,6 +117,10 @@ impl<'a> Locations<'a> {
         Ok(Self { locations })
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.locations.is_empty()
+    }
+
     pub fn iter_mut(&mut self) -> IterMut<Location<'a>> {
         self.locations.iter_mut()
     }
@@ -123,7 +131,7 @@ impl<'a> Locations<'a> {
 
     pub fn add_meals<'b: 'a>(
         &mut self,
-        html: impl Iterator<Item = &'b Html>,
+        htmls: impl Iterator<Item = &'b Html>,
         location_meta: &LocationMeta,
     ) -> Result<(), Error> {
         let location = self
@@ -137,7 +145,7 @@ impl<'a> Locations<'a> {
                 ))
             })?;
 
-        location.add_meals(html)?;
+        location.add_meals(htmls)?;
 
         Ok(())
     }

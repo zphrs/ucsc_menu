@@ -1,6 +1,7 @@
 use std::{
     cell::OnceCell,
     num::NonZeroU32,
+    pin::Pin,
     sync::{Arc, OnceLock},
     time::Duration,
 };
@@ -49,7 +50,7 @@ pub async fn fetch_location_page(
     client: &reqwest::Client,
     location_meta: &LocationMeta,
     date: Option<chrono::NaiveDate>,
-) -> Result<(String, scraper::Html), RequestError> {
+) -> Result<scraper::Html, RequestError> {
     let rate_limiter = RATE_LIMITER.get_or_init(|| {
         governor::RateLimiter::direct(governor::Quota::per_second(
             NonZeroU32::new(RATE_LIMIT).unwrap(),
@@ -73,14 +74,14 @@ pub async fn fetch_location_page(
     println!("Got text of location page in \t {:?}", start.elapsed());
     // gzip decode
     let html = scraper::Html::parse_document(&text);
-    Ok((text, html))
+    Ok(html)
 }
 
 pub async fn fetch_menus_on_date(
     client: &reqwest::Client,
     locations: &Locations<'_>,
     date: Option<chrono::NaiveDate>,
-) -> Result<Vec<(String, scraper::Html)>, RequestError> {
+) -> Result<Vec<scraper::Html>, RequestError> {
     futures::future::try_join_all(
         locations
             .iter()
@@ -95,7 +96,7 @@ pub fn date_iter(start: chrono::NaiveDate, count: i64) -> impl Iterator<Item = c
 
 #[cfg(test)]
 mod tests {
-    use std::vec;
+    use std::{ops::Deref, vec};
 
     use crate::{parse::Locations, transpose::transposed};
 
@@ -139,16 +140,8 @@ mod tests {
             week_menus.len() * locations.iter().len()
         );
         let parsed_week_menus = week_menus
-            .iter()
-            .map_while(|x| {
-                Some(
-                    x.as_ref()
-                        .ok()?
-                        .iter()
-                        .map(|y| y.1.clone())
-                        .collect::<Vec<_>>(),
-                )
-            })
+            .into_iter()
+            .filter_map(Result::ok)
             .collect::<Vec<_>>();
         println!("Time taken to parse all menus:\t{:?}", start_time.elapsed());
         let parsed_week_menus = transposed(parsed_week_menus);
@@ -158,10 +151,12 @@ mod tests {
         println!("Time taken to add all menus:\t{:?}", start_time.elapsed());
         // println!("{:#?}", locations);
         // save the locations to a file
-        let locations = serde_json::to_string(&locations).unwrap();
-        std::fs::write("locations.json", &locations).unwrap();
+        let serialized_locations = serde_json::to_string(&locations).unwrap();
+        std::fs::write("locations.json", &serialized_locations).unwrap();
         // test that the locations can be deserialized
-        let _locations: Locations = serde_json::from_str(&locations).unwrap();
+        let parsed_locations: Locations = serde_json::from_str(&serialized_locations).unwrap();
+        // test equality
+        assert_eq!(locations, parsed_locations);
     }
 
     #[tokio::test]
@@ -177,6 +172,6 @@ mod tests {
         let page = fetch_location_page(&client, &location_meta, None)
             .await
             .unwrap();
-        println!("{}", page.0);
+        println!("{:#?}", page);
     }
 }

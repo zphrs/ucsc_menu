@@ -2,6 +2,7 @@
 #![allow(unused_imports)] // TODO: remove this line once done with crate
 
 mod cache;
+mod error;
 mod fetch;
 mod parse;
 mod transpose;
