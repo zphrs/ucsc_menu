@@ -1,5 +1,5 @@
 use super::menu_cache::{self, MenuCache};
-use crate::error::Error;
+use crate::{error::Error, parse::Locations};
 use std::{
     borrow::BorrowMut,
     ops::{Deref, DerefMut},
@@ -8,6 +8,7 @@ use std::{
 
 use futures::FutureExt;
 use futures_locks::RwLock;
+use juniper::{EmptyMutation, EmptySubscription, RootNode};
 
 #[derive(Debug)]
 pub struct MultithreadedCache<'a>(RwLock<MenuCache<'a>>);
@@ -31,11 +32,20 @@ impl<'a> MultithreadedCache<'a> {
         Ok(refreshed)
     }
 
-    pub async fn get<'b>(&'a self) -> impl Deref<Target = MenuCache<'a>> + 'b
+    pub async fn get<'b>(&'b self) -> impl Deref<Target = MenuCache<'a>> + 'b
     where
         'a: 'b,
     {
         self.0.read().await
+    }
+    pub async fn get_root_node<'b>(
+        &'b self,
+    ) -> RootNode<'static, Locations, EmptyMutation, EmptySubscription> {
+        RootNode::new(
+            self.0.read().await.locations().to_owned(),
+            EmptyMutation::<()>::new(),
+            EmptySubscription::<()>::new(),
+        )
     }
 }
 

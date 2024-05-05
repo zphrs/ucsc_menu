@@ -21,9 +21,10 @@ pub enum MealType {
     Lunch,
     Dinner,
     LateNight,
-    Menu,    // used for menus that are not specific to a meal time. Ex: Global Cafe
+    Menu,       // used for menus that are not specific to a meal time. Ex: Global Cafe
     Unknown, // used for when the meal type is not known (ex. when the food item is detached from a meal)
     AllDay,  // default if the above don't match
+    BananaJoes, // Late Night @ Banana Joes - only for crown
 }
 #[derive(Debug, GraphQLObject, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Meal<'a> {
@@ -51,8 +52,10 @@ impl<'a> Meal<'a> {
             "Lunch" => MealType::Lunch,
             "Dinner" => MealType::Dinner,
             "Late Night" => MealType::LateNight,
+            "Late Night @ Banana Joe's" => MealType::BananaJoes,
             "Menu" => MealType::Menu,
-            _ => MealType::AllDay,
+            "All Day" => MealType::AllDay,
+            _ => MealType::Unknown,
         };
 
         static_selector!(SECTION_NAME_SELECTOR <- "table > tbody > tr");
