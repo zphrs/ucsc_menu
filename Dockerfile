@@ -1,11 +1,13 @@
 FROM rust:1.78-alpine as builder
 WORKDIR /usr/src/ucsc_menu
 COPY . .
-RUN cargo install --path .
+RUN apk add --no-cache musl-dev openssl-dev
+RUN RUSTFLAGS="-Ctarget-feature=-crt-static" cargo install --path .
 
 FROM alpine:latest
-# RUN apt-cache search libssl3-dev
-# RUN apt update && apt install -y build-essential libssl-dev && rm -rf /var/lib/apt/lists/*
-# RUN ldconfig /usr/local/lib64/
+RUN apk add --no-cache musl openssl libgcc
+ENV port 8080
+ENV HOST 0.0.0.0
 COPY --from=builder /usr/local/cargo/bin/ucsc_menu /usr/local/bin/ucsc_menu
+EXPOSE 8080
 CMD ["ucsc_menu"]

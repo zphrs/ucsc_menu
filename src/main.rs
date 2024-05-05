@@ -8,7 +8,10 @@ mod fetch;
 mod parse;
 mod transpose;
 
-use std::{convert::Infallible, env, error::Error, net::SocketAddr, sync::Arc, time::Duration};
+use std::{
+    convert::Infallible, env, error::Error, net::SocketAddr, str::FromStr, sync::Arc,
+    time::Duration,
+};
 
 use hyper::{server::conn::http1, service::service_fn, Method, Response, StatusCode};
 use hyper_util::rt::TokioIo;
@@ -26,8 +29,12 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     pretty_env_logger::init();
 
     let db = Arc::new(cache::MultithreadedCache::new().await.unwrap());
-
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let addr = SocketAddr::from_str(&format!(
+        "{}:{}",
+        env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string()),
+        env::var("PORT").unwrap_or_else(|_| "3000".to_string())
+    ))
+    .unwrap();
     let listener = TcpListener::bind(addr).await?;
     log::info!("Listening on http://{addr}");
     let db1 = db.clone();
