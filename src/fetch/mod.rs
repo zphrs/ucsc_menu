@@ -85,7 +85,7 @@ pub async fn fetch_menus_on_date(
     futures::future::try_join_all(
         locations
             .iter()
-            .map(|x| fetch_location_page(&client, x.metadata(), date)),
+            .map(|x| fetch_location_page(client, x.metadata(), date)),
     )
     .await
 }

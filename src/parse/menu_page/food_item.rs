@@ -143,13 +143,13 @@ mod tests {
         );
 
         println!("{}", rn.as_sdl());
-        let query = r#"
+        let query = r"
             {
                 allergens
                 name
                 price
             }
-        "#;
+        ";
         let binding = juniper::Variables::default();
         let result = juniper::execute(query, None, &rn, &binding, &())
             .await

@@ -13,7 +13,7 @@ use super::location_meta::LocationMeta;
 
 use super::location_data::{LocationData, NUM_MEALS};
 
-#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq, Clone)]
 pub struct Location<'a>(LocationData<'a>, LocationMeta);
 
 #[derive(GraphQLInputObject, Debug)]
@@ -76,7 +76,7 @@ impl<'a> Location<'a> {
         self.0.clear();
     }
 }
-#[derive(Debug, serde::Serialize, serde::Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Default, PartialEq, Eq, Clone)]
 pub struct Locations<'a> {
     locations: Vec<Location<'a>>,
 }
@@ -232,14 +232,14 @@ mod tests {
             EmptySubscription::<()>::new(),
         );
         // println!("{}", root.as_sdl());
-        let query = r#"
+        let query = r"
             {
                 locations {
                     id
                     name
                 }
             }
-        "#;
+        ";
         let binding: Variables = Default::default();
         let res = juniper::execute(query, None, &root, &binding, &())
             .await

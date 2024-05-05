@@ -18,7 +18,7 @@ impl<'de> serde::Deserialize<'de> for LocationMeta {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let str = String::deserialize(deserializer)?;
         let url = Url::parse(&str).map_err(serde::de::Error::custom)?;
-        Ok(Self::from_url(url).map_err(serde::de::Error::custom)?)
+        Self::from_url(url).map_err(serde::de::Error::custom)
     }
 }
 

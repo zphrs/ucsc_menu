@@ -27,33 +27,35 @@ struct InDbMenuCache {
 
 impl InDbMenuCache {
     pub fn new(data: String) -> Self {
-        let mut default = InDbMenuCache::default();
-        default.data = data;
-        default
+        Self {
+            data,
+            ..Default::default()
+        }
     }
 }
 
-impl<'a> Into<MenuCache<'a>> for InDbMenuCache {
-    fn into(self) -> MenuCache<'a> {
-        if self.data == "" {
+impl<'a> From<InDbMenuCache> for MenuCache<'a> {
+    fn from(cache: InDbMenuCache) -> Self {
+        if cache.data.is_empty() {
             return MenuCache {
-                cached_at: self.cached_at,
+                cached_at: cache.cached_at,
                 locations: Locations::default(),
             };
         }
-        let locations: Locations = serde_json::from_str(&self.data).unwrap();
+        let locations: Locations =
+            serde_json::from_str(&cache.data).expect("Data parse should always be valid");
         MenuCache {
-            cached_at: self.cached_at,
+            cached_at: cache.cached_at,
             locations,
         }
     }
 }
 
-impl<'a> Into<InDbMenuCache> for MenuCache<'a> {
-    fn into(self) -> InDbMenuCache {
+impl<'a> From<MenuCache<'a>> for InDbMenuCache {
+    fn from(cache: MenuCache<'a>) -> Self {
         InDbMenuCache {
-            cached_at: self.cached_at,
-            data: serde_json::to_string(&self.locations).unwrap(),
+            cached_at: cache.cached_at,
+            data: serde_json::to_string(&cache.locations).unwrap(),
         }
     }
 }
@@ -81,7 +83,7 @@ impl<'a> MenuCache<'a> {
     pub async fn maybe_refresh(&mut self) -> Result<bool, Error> {
         if Utc::now().signed_duration_since(self.cached_at) > chrono::Duration::minutes(15) {
             self.refresh().await?;
-            return Ok(true);
+            Ok(true)
         } else {
             Ok(false)
         }

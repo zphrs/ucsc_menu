@@ -36,6 +36,7 @@ governor = "0.6.3"
 firestore = "0.41.0"
 async-compression = { version = "0.4.9", features = ["gzip"] }
 futures-locks = "0.7.1"
+ouroboros = "0.18.3"
 
 [dev-dependencies]
 opentelemetry = "0.22.0"

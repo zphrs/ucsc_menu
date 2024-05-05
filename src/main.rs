@@ -1,5 +1,6 @@
 #![allow(dead_code)] // TODO: remove this line once done with crate
 #![allow(unused_imports)] // TODO: remove this line once done with crate
+#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 
 mod cache;
 mod error;

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Usd<'a>(rusty_money::Money<'a, rusty_money::iso::Currency>);
 
@@ -8,9 +10,11 @@ impl Usd<'_> {
             rusty_money::iso::USD,
         )?))
     }
+}
 
-    pub fn to_string(&self) -> String {
-        self.0.to_string()
+impl Display for Usd<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -27,7 +31,7 @@ impl<'de> serde::Deserialize<'de> for Usd<'_> {
         let s = s.trim_matches('"');
         // remove dollar sign
         let s = &s[1..];
-        Self::from_str(&s).map_err(serde::de::Error::custom)
+        Self::from_str(s).map_err(serde::de::Error::custom)
     }
 }
 

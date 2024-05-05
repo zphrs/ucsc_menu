@@ -109,7 +109,7 @@ mod tests {
             EmptySubscription::<()>::new(),
         );
         // println!("{}", schema.as_sdl());
-        let query = r#"
+        let query = r"
             query {
                 date
                 meals {
@@ -122,7 +122,7 @@ mod tests {
                     }
                 }
             }
-        "#;
+        ";
         let binding = juniper::Variables::default();
         let res = juniper::execute(query, None, &schema, &binding, &())
             .await

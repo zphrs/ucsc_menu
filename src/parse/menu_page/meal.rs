@@ -233,7 +233,7 @@ mod tests {
             EmptySubscription::<()>::new(),
         );
         // println!("{}", schema.as_sdl());
-        let query = r#"
+        let query = r"
             {
                 mealType
                 sections {
@@ -244,7 +244,7 @@ mod tests {
                     }
                 }
             }
-        "#;
+        ";
         let binding = juniper::Variables::default();
         let res = juniper::execute(query, None, &schema, &binding, &())
             .await
