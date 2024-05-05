@@ -123,21 +123,34 @@ impl<'a> MenuCache<'a> {
     async fn refresh(&mut self) -> Result<(), crate::error::Error> {
         let client = make_client();
         let locations_page = fetch_locations_page(&client).await?;
-        let parsed = scraper::Html::parse_document(&locations_page);
-        let mut locations: Locations = Locations::from_html_element(parsed.root_element())?;
-        let start_date = chrono::Utc::now().date_naive() - chrono::Duration::days(1); // subtract one day to make sure we try to get today's menu due to timezones
-        let week_menus: FuturesUnordered<_> = date_iter(start_date, 10)
-            .map(|x| fetch_menus_on_date(&client, &locations, Some(x)))
-            .collect();
-        let week_menus: Vec<_> = week_menus.collect().await;
-        let valid_week_menus = week_menus.into_iter().filter_map(Result::ok).collect();
+        let mut locations = {
+            let parsed = scraper::Html::parse_document(&locations_page);
+            let locations: Locations = Locations::from_html_element(parsed.root_element())?;
+            locations
+        };
+        {
+            let start_date = chrono::Utc::now().date_naive() - chrono::Duration::days(1); // subtract one day to make sure we try to get today's menu due to timezones
+            let week_menus: FuturesUnordered<_> = date_iter(start_date, 10)
+                .map(|x| fetch_menus_on_date(&client, &locations, Some(x)))
+                .collect();
+            let week_menus: Vec<_> = week_menus.collect().await;
+            let valid_week_menus = week_menus.into_iter().filter_map(Result::ok).collect();
 
-        let valid_week_menus = transposed(valid_week_menus);
-        let parsed_week_menus_iter = valid_week_menus.iter();
-        for (location, htmls) in locations.iter_mut().zip(parsed_week_menus_iter) {
-            location.add_meals(htmls.iter())?;
-        }
-        self.locations = serde_json::from_str(&serde_json::to_string(&locations).unwrap()).unwrap();
+            let valid_week_menus: Vec<_> = transposed(valid_week_menus)
+                .into_iter()
+                .map(|v| -> Vec<_> {
+                    v.into_iter()
+                        .map(|s| scraper::Html::parse_document(&s))
+                        .collect()
+                })
+                .collect();
+            let parsed_week_menus_iter = valid_week_menus.iter();
+            for (location, htmls) in locations.iter_mut().zip(parsed_week_menus_iter) {
+                location.add_meals(htmls.iter())?;
+            }
+            self.locations =
+                serde_json::from_str(&serde_json::to_string(&locations).unwrap()).unwrap();
+        };
         self.cached_at = Utc::now();
         self.save_to_db().await?;
         Ok(())

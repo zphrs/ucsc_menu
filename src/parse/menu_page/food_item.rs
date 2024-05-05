@@ -32,7 +32,7 @@ impl<'a> FoodItem<'a> {
         // get name with css selector .shortmenurecipes > span
         static_selector!(NAME_SELECTOR <- ".shortmenurecipes > span");
         let name = text_from_selection(&NAME_SELECTOR, element, "foodItem", "name")?.trim_end();
-        let name: Cow<'a, str> = remove_excess_whitespace(name);
+        let name = remove_excess_whitespace(name);
         // get allergen info with css selector td > img
         static_selector!(ALLERGEN_INFO_SELECTOR <- "td > img");
         let allergen_info =

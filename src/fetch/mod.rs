@@ -50,7 +50,7 @@ pub async fn fetch_location_page(
     client: &reqwest::Client,
     location_meta: &LocationMeta,
     date: Option<chrono::NaiveDate>,
-) -> Result<scraper::Html, RequestError> {
+) -> Result<String, RequestError> {
     let rate_limiter = RATE_LIMITER.get_or_init(|| {
         governor::RateLimiter::direct(governor::Quota::per_second(
             NonZeroU32::new(RATE_LIMIT).unwrap(),
@@ -73,15 +73,15 @@ pub async fn fetch_location_page(
     let text = res.text().await?;
     println!("Got text of location page in \t {:?}", start.elapsed());
     // gzip decode
-    let html = scraper::Html::parse_document(&text);
-    Ok(html)
+    // let html = scraper::Html::parse_document(&text);
+    Ok(text)
 }
 
 pub async fn fetch_menus_on_date(
     client: &reqwest::Client,
     locations: &Locations<'_>,
     date: Option<chrono::NaiveDate>,
-) -> Result<Vec<scraper::Html>, RequestError> {
+) -> Result<Vec<String>, RequestError> {
     futures::future::try_join_all(
         locations
             .iter()
@@ -127,36 +127,8 @@ mod tests {
             start_time.elapsed()
         );
         let parsed = scraper::Html::parse_document(&page);
-        let mut locations: Locations = Locations::from_html_element(parsed.root_element()).unwrap();
+        let _locations: Locations = Locations::from_html_element(parsed.root_element()).unwrap();
         println!("Time taken to parse locations:\t{:?}", start_time.elapsed());
-        let start_date = chrono::Utc::now().date_naive() - chrono::Duration::days(1); // subtract one day to make sure we get today's menu due to timezones
-        let week_menus: FuturesUnordered<_> = date_iter(start_date, 10)
-            .map(|x| fetch_menus_on_date(&client, &locations, Some(x)))
-            .collect();
-        let week_menus: Vec<_> = week_menus.collect().await;
-        println!(
-            "Time taken to fetch all menus:\t{:?}. Number of menus: {}",
-            start_time.elapsed(),
-            week_menus.len() * locations.iter().len()
-        );
-        let parsed_week_menus = week_menus
-            .into_iter()
-            .filter_map(Result::ok)
-            .collect::<Vec<_>>();
-        println!("Time taken to parse all menus:\t{:?}", start_time.elapsed());
-        let parsed_week_menus = transposed(parsed_week_menus);
-        for (location, htmls) in locations.iter_mut().zip(parsed_week_menus.iter()) {
-            location.add_meals(htmls.iter()).unwrap();
-        }
-        println!("Time taken to add all menus:\t{:?}", start_time.elapsed());
-        // println!("{:#?}", locations);
-        // save the locations to a file
-        let serialized_locations = serde_json::to_string(&locations).unwrap();
-        std::fs::write("locations.json", &serialized_locations).unwrap();
-        // test that the locations can be deserialized
-        let parsed_locations: Locations = serde_json::from_str(&serialized_locations).unwrap();
-        // test equality
-        assert_eq!(locations, parsed_locations);
     }
 
     #[tokio::test]

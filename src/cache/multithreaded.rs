@@ -19,19 +19,14 @@ impl<'a> MultithreadedCache<'a> {
         Ok(Self(RwLock::new(menu)))
     }
 
-    pub async fn get_write<'b>(&'a self) -> impl DerefMut<Target = MenuCache<'a>> + 'b
-    where
-        'a: 'b,
-    {
-        let guard = self.0.write().await;
-        guard
-    }
-
     pub async fn refresh(&self) -> Result<bool, Error> {
+        // spawn local thread to do the refreshing
         let mut new_menu = MenuCache::open().await?;
         let refreshed = new_menu.maybe_refresh().await?;
-        let mut guard = self.0.write().await;
-        *guard = new_menu;
+        if refreshed {
+            let mut guard = self.0.write().await;
+            *guard = new_menu;
+        }
 
         Ok(refreshed)
     }
@@ -55,7 +50,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_refresh() {
         let menu = MultithreadedCache::new().await.unwrap();
-        assert_eq!(menu.refresh().await.unwrap(), false);
+        menu.refresh().await.unwrap();
         // try having multiple threads read from menu at the same time
         // using the get() function
         tokio_scoped::scope(|s| {
@@ -63,7 +58,7 @@ mod tests {
             scope.spawn(async {
                 // update the menu
                 // (*menu.get_write()).maybe_refresh().await.unwrap();
-                menu.refresh().await;
+                menu.refresh().await.unwrap();
             });
             for _ in 0..10 {
                 scope = scope.spawn(async {
