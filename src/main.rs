@@ -69,6 +69,16 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                                 }
                                 (&Method::GET, "/graphiql") => graphiql("/graphql", None).await,
                                 (&Method::GET, "/playground") => playground("/graphql", None).await,
+                                (&Method::PATCH, "/request-refresh") => {
+                                    log::info!("Refreshing cache");
+                                    let n = Instant::now();
+                                    db.refresh().await.unwrap();
+                                    log::info!("Finished refreshing cache in {:?}", n.elapsed());
+                                    let mut resp = Response::new(String::new());
+                                    *resp.status_mut() = StatusCode::OK;
+                                    resp.body_mut().push_str("OK");
+                                    resp
+                                }
                                 _ => {
                                     let mut resp = Response::new(String::new());
                                     *resp.status_mut() = StatusCode::NOT_FOUND;

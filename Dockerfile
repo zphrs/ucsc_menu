@@ -6,7 +6,7 @@ RUN RUSTFLAGS="-Ctarget-feature=-crt-static" cargo install --path .
 
 FROM alpine:latest
 RUN apk add --no-cache musl openssl libgcc
-ENV port 8080
+ENV PORT 8080
 ENV HOST 0.0.0.0
 COPY --from=builder /usr/local/cargo/bin/ucsc_menu /usr/local/bin/ucsc_menu
 EXPOSE 8080
