@@ -13,7 +13,10 @@ use std::{
     time::Duration,
 };
 
-use hyper::{server::conn::http1, service::service_fn, Method, Response, StatusCode};
+use axum::http::HeaderValue;
+use hyper::{
+    server::conn::http1, server::conn::http2, service::service_fn, Method, Response, StatusCode,
+};
 use hyper_util::rt::TokioIo;
 use juniper::{EmptyMutation, EmptySubscription, RootNode};
 use juniper_hyper::{graphiql, graphql, playground};
@@ -21,7 +24,9 @@ use tokio::{
     net::TcpListener,
     time::{sleep, Instant},
 };
+use tower_http::compression::CompressionLayer;
 use tracing::trace;
+use url::Url;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -36,15 +41,19 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     ))
     .unwrap();
     let listener = TcpListener::bind(addr).await?;
+    let comression_layer: CompressionLayer = CompressionLayer::new().gzip(true);
     log::info!("Listening on http://{addr}");
-    let db1 = db.clone();
     tokio::spawn(async move {
         loop {
-            log::info!("Refreshing cache");
-            let n = Instant::now();
-            db1.refresh().await.unwrap();
-            log::info!("Finished refreshing cache in {:?}", n.elapsed());
-            sleep(Duration::from_secs(1 * 60)).await;
+            log::info!("Forcing a cache refresh");
+            // let n = Instant::now();
+            // db1.refresh().await.unwrap();
+            // log::info!("Finished refreshing cache in {:?}", n.elapsed());
+            let client = fetch::make_client();
+            let url = Url::from_str(&format!("https://graphql.ucsc.menu/request-refresh")).unwrap();
+            let _ = client.patch(url).send().await;
+            log::info!("Forced cache refresh done");
+            sleep(Duration::from_secs(15 * 60)).await;
         }
     });
     loop {
@@ -65,7 +74,12 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                             let root_node = Arc::new(db.get_root_node().await);
                             Ok::<_, Infallible>(match (req.method(), req.uri().path()) {
                                 (&Method::GET, "/graphql") | (&Method::POST, "/graphql") => {
-                                    graphql(root_node, Arc::new(()), req).await
+                                    let mut res = graphql(root_node, Arc::new(()), req).await;
+                                    res.headers_mut().append(
+                                        "Access-Control-Allow-Origin",
+                                        HeaderValue::from_static("*"),
+                                    );
+                                    res
                                 }
                                 (&Method::GET, "/graphiql") => graphiql("/graphql", None).await,
                                 (&Method::GET, "/playground") => playground("/graphql", None).await,
@@ -75,7 +89,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                                     db.refresh().await.unwrap();
                                     log::info!("Finished refreshing cache in {:?}", n.elapsed());
                                     let mut resp = Response::new(String::new());
-                                    *resp.status_mut() = StatusCode::OK;
+                                    *resp.status_mut() = StatusCode::CREATED;
                                     resp.body_mut().push_str("OK");
                                     resp
                                 }

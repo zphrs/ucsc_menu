@@ -81,7 +81,7 @@ impl<'a> MenuCache<'a> {
     }
 
     pub async fn maybe_refresh(&mut self) -> Result<bool, Error> {
-        if Utc::now().signed_duration_since(self.cached_at) > chrono::Duration::minutes(1) {
+        if Utc::now().signed_duration_since(self.cached_at) > chrono::Duration::minutes(15) {
             self.refresh().await?;
             Ok(true)
         } else {

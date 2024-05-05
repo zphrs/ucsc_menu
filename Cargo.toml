@@ -2,8 +2,6 @@
 name = "ucsc_menu"
 version = "0.1.0"
 edition = "2021"
-
-[profile.test]
 # opt-level = 3
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -13,7 +11,6 @@ hyper = { version = "1", features = ["full"] }
 tokio = { version = "1", features = ["full", "rt-multi-thread", "tracing"] }
 http-body-util = "0.1"
 hyper-util = { version = "0.1", features = ["tokio", "full"] }
-juniper_hyper = "0.9.0"
 pretty_env_logger = "0.5.0"
 log = "0.4.21"
 juniper = { version = "0.16.1", features = ["schema-language", "chrono"] }
@@ -37,9 +34,11 @@ firestore = "0.41.0"
 async-compression = { version = "0.4.9", features = ["gzip"] }
 futures-locks = "0.7.1"
 ouroboros = "0.18.3"
-juniper_axum = "0.1.0"
-axum = "0.7.5"
+juniper_axum = { version = "0.1.0", features = ["subscriptions"] }
+axum = { version = "0.7.5", features = ["http2"] }
 tokio-scoped = "0.2.0"
+tower-http = { version = "0.5.2", features = ["compression-gzip"] }
+juniper_hyper = "0.9.0"
 
 [dev-dependencies]
 opentelemetry = "0.22.0"
