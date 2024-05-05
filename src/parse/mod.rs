@@ -1,8 +1,11 @@
-mod daily_menu;
 mod error;
+mod menu_page;
 pub use error::Error;
-mod locations;
+mod location_page;
+mod remove_excess_whitespace;
 mod static_selector;
 mod text_from_selection;
 
-pub use locations::LocationMeta;
+pub use location_page::LocationMeta;
+pub use location_page::Locations;
+pub use remove_excess_whitespace::remove_excess_whitespace;

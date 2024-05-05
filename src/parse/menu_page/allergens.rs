@@ -2,9 +2,10 @@ use std::fmt::Display;
 
 use crate::parse::Error;
 use bitflags::bitflags;
+use juniper::GraphQLEnum;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct AllergenInfo(AllergenFlags);
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
+pub struct AllergenInfo(pub(super) AllergenFlags);
 
 impl AllergenInfo {
     // should pass in the allergen image elements
@@ -39,8 +40,8 @@ impl AllergenInfo {
             ));
         }
         // chop off the ".gif" suffix
-        let img_url = &img_url[..img_url.len() - SUFFIX.len()];
-        let res = match img_url {
+        let img_url = img_url[..img_url.len() - SUFFIX.len()].to_lowercase();
+        let res = match img_url.as_str() {
             "eggs" => AllergenFlags::Egg,
             "fish" => AllergenFlags::Fish,
             "gluten" => AllergenFlags::GlutenFriendly,
@@ -56,7 +57,9 @@ impl AllergenInfo {
             "halal" => AllergenFlags::Halal,
             "shellfish" => AllergenFlags::Shellfish,
             "sesame" => AllergenFlags::Sesame,
-            _ => Err(Error::html_parse_error("Unknown allergen image url"))?,
+            _ => Err(Error::HtmlParse(format!(
+                "Unknown allergen image url: {img_url}"
+            )))?,
         };
         Ok(res)
     }
@@ -71,20 +74,33 @@ impl AllergenInfo {
     }
 }
 
+impl serde::Serialize for AllergenInfo {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.bits().serialize(serializer)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for AllergenInfo {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let bits = u16::deserialize(deserializer)?;
+        Ok(Self(AllergenFlags::from_bits(bits).unwrap_or_default()))
+    }
+}
+
 impl Display for AllergenInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-impl From<AllergenFlags> for AllergenInfo {
-    fn from(flags: AllergenFlags) -> Self {
-        Self(flags)
+impl From<&AllergenInfo> for Vec<&'static str> {
+    fn from(val: &AllergenInfo) -> Self {
+        (&val.0).into()
     }
 }
 
 bitflags! {
-    #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
     pub struct AllergenFlags: u16 {
         const Egg = 1;
         const Fish = 1 << 1;
@@ -104,9 +120,76 @@ bitflags! {
     }
 }
 
-impl Into<Vec<&'static str>> for &AllergenFlags {
-    fn into(self) -> Vec<&'static str> {
-        static ALLERGENS: [(AllergenFlags, &'static str); 15] = [
+#[derive(Debug, PartialEq, Eq, Clone, Copy, GraphQLEnum)]
+pub enum Allergens {
+    Egg,
+    Fish,
+    GlutenFriendly,
+    Milk,
+    Peanut,
+    Soy,
+    TreeNut,
+    Alcohol,
+    Vegan,
+    Vegetarian,
+    Pork,
+    Beef,
+    Halal,
+    Shellfish,
+    Sesame,
+}
+
+impl From<AllergenFlags> for Vec<Allergens> {
+    fn from(value: AllergenFlags) -> Self {
+        value
+            .into_iter()
+            .map(|x| match x {
+                AllergenFlags::Egg => Allergens::Egg,
+                AllergenFlags::Fish => Allergens::Fish,
+                AllergenFlags::GlutenFriendly => Allergens::GlutenFriendly,
+                AllergenFlags::Milk => Allergens::Milk,
+                AllergenFlags::Peanut => Allergens::Peanut,
+                AllergenFlags::Soy => Allergens::Soy,
+                AllergenFlags::TreeNut => Allergens::TreeNut,
+                AllergenFlags::Alcohol => Allergens::Alcohol,
+                AllergenFlags::Vegan => Allergens::Vegan,
+                AllergenFlags::Vegetarian => Allergens::Vegetarian,
+                AllergenFlags::Pork => Allergens::Pork,
+                AllergenFlags::Beef => Allergens::Beef,
+                AllergenFlags::Halal => Allergens::Halal,
+                AllergenFlags::Shellfish => Allergens::Shellfish,
+                AllergenFlags::Sesame => Allergens::Sesame,
+                _ => unreachable!("Allergen flags should be one-to-one with Allergens enum"),
+            })
+            .collect()
+    }
+}
+
+impl From<Allergens> for AllergenFlags {
+    fn from(allergen: Allergens) -> AllergenFlags {
+        match allergen {
+            Allergens::Egg => AllergenFlags::Egg,
+            Allergens::Fish => AllergenFlags::Fish,
+            Allergens::GlutenFriendly => AllergenFlags::GlutenFriendly,
+            Allergens::Milk => AllergenFlags::Milk,
+            Allergens::Peanut => AllergenFlags::Peanut,
+            Allergens::Soy => AllergenFlags::Soy,
+            Allergens::TreeNut => AllergenFlags::TreeNut,
+            Allergens::Alcohol => AllergenFlags::Alcohol,
+            Allergens::Vegan => AllergenFlags::Vegan,
+            Allergens::Vegetarian => AllergenFlags::Vegetarian,
+            Allergens::Pork => AllergenFlags::Pork,
+            Allergens::Beef => AllergenFlags::Beef,
+            Allergens::Halal => AllergenFlags::Halal,
+            Allergens::Shellfish => AllergenFlags::Shellfish,
+            Allergens::Sesame => AllergenFlags::Sesame,
+        }
+    }
+}
+
+impl From<&AllergenFlags> for Vec<&'static str> {
+    fn from(val: &AllergenFlags) -> Self {
+        static ALLERGENS: [(AllergenFlags, &str); 15] = [
             (AllergenFlags::Egg, "Egg"),
             (AllergenFlags::Fish, "Fish"),
             (AllergenFlags::GlutenFriendly, "Gluten Friendly"),
@@ -128,7 +211,7 @@ impl Into<Vec<&'static str>> for &AllergenFlags {
             .filter_map(|(allergen_flag, allergen_name)| {
                 let flag = AllergenFlags::from_bits(allergen_flag.bits())
                     .expect("AllergenFlags should be valid");
-                if self.contains(flag) {
+                if val.contains(flag) {
                     Some(*allergen_name)
                 } else {
                     None
@@ -138,9 +221,15 @@ impl Into<Vec<&'static str>> for &AllergenFlags {
     }
 }
 
-impl Into<Vec<&'static str>> for AllergenFlags {
-    fn into(self) -> Vec<&'static str> {
-        (&self).into()
+impl From<AllergenInfo> for AllergenFlags {
+    fn from(val: AllergenInfo) -> Self {
+        val.0
+    }
+}
+
+impl From<AllergenInfo> for Vec<Allergens> {
+    fn from(val: AllergenInfo) -> Self {
+        val.0.into()
     }
 }
 
@@ -154,6 +243,7 @@ impl Display for AllergenFlags {
 #[cfg(test)]
 
 mod tests {
+
     use crate::static_selector;
 
     use super::*;
@@ -240,5 +330,24 @@ mod tests {
         }
         // ensure that all the allergen flags are picked up properly
         assert!(all_allergen_flags.is_all());
+    }
+
+    #[test]
+    fn test_serde() {
+        let allergen_info = AllergenInfo(AllergenFlags::all());
+        let serialized = serde_json::to_string(&allergen_info).unwrap();
+        let deserialized: AllergenInfo = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(allergen_info, deserialized);
+
+        let allergen_info = AllergenInfo(AllergenFlags::empty());
+        let serialized = serde_json::to_string(&allergen_info).unwrap();
+        let deserialized: AllergenInfo = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(allergen_info, deserialized);
+
+        let mut allergen_info = AllergenInfo(AllergenFlags::empty());
+        allergen_info.0.insert(AllergenFlags::Egg);
+        let serialized = serde_json::to_string(&allergen_info).unwrap();
+        let deserialized: AllergenInfo = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(allergen_info, deserialized);
     }
 }

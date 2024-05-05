@@ -1,8 +1,11 @@
 #![allow(dead_code)] // TODO: remove this line once done with crate
+#![allow(unused_imports)] // TODO: remove this line once done with crate
 
 mod cache;
+mod error;
 mod fetch;
 mod parse;
+mod transpose;
 
 use std::{convert::Infallible, env, error::Error, net::SocketAddr, sync::Arc};
 
