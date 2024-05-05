@@ -14,34 +14,39 @@ use hyper::{server::conn::http1, service::service_fn, Method, Response, StatusCo
 use hyper_util::rt::TokioIo;
 use juniper::{EmptyMutation, EmptySubscription, RootNode};
 use juniper_hyper::{graphiql, graphql, playground};
-use tokio::{net::TcpListener, time::sleep};
+use tokio::{
+    net::TcpListener,
+    time::{sleep, Instant},
+};
+use tracing::trace;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    env::set_var("RUST_LOG", "info");
+    env::set_var("RUST_LOG", "ucsc_menu=info");
     pretty_env_logger::init();
-
-    // let root_node = Arc::new(db.get_root_node().await);
 
     let db = Arc::new(cache::MultithreadedCache::new().await.unwrap());
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     let listener = TcpListener::bind(addr).await?;
     log::info!("Listening on http://{addr}");
+    let db1 = db.clone();
+    tokio::spawn(async move {
+        loop {
+            log::info!("Refreshing cache");
+            let n = Instant::now();
+            db1.refresh().await.unwrap();
+            log::info!("Finished refreshing cache in {:?}", n.elapsed());
+            sleep(Duration::from_secs(1 * 60)).await;
+        }
+    });
     loop {
         let (stream, _) = listener.accept().await?;
         let io = TokioIo::new(stream);
         let db = db.clone();
         // let root_node = root_node.clone();
         tokio_scoped::scope(|scope| {
-            let mut s = scope;
-            let db1 = db.clone();
-            s = s.spawn(async move {
-                loop {
-                    sleep(Duration::from_secs(15 * 60)).await;
-                    db1.refresh().await.unwrap();
-                }
-            });
+            let s = scope;
             let db = db.clone();
             s.spawn(async move {
                 // let root_node = root_node.clone();

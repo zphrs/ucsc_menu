@@ -13,7 +13,7 @@ use governor::{
     state::InMemoryState,
 };
 use reqwest::{Client, Error as RequestError};
-use tracing::{instrument, trace};
+use tracing::{instrument, trace, Level};
 
 use crate::parse::{LocationMeta, Locations};
 
@@ -45,7 +45,7 @@ static RATE_LIMITER: OnceLock<
     // `%` serializes the peer IP addr with `Display`
     id = %location_meta.id(),
     date = %date.ok_or_else(|| "No date provided").unwrap_or_default().format("%m/%d/%Y"),
-))]
+), level = Level::TRACE)]
 pub async fn fetch_location_page(
     client: &reqwest::Client,
     location_meta: &LocationMeta,
@@ -71,7 +71,7 @@ pub async fn fetch_location_page(
     let res = client.get(url).header("Cookie", cookies).send().await?;
     let start = std::time::Instant::now();
     let text = res.text().await?;
-    println!("Got text of location page in \t {:?}", start.elapsed());
+    log::trace!("Got text of location page in \t {:?}", start.elapsed());
     // gzip decode
     // let html = scraper::Html::parse_document(&text);
     Ok(text)
