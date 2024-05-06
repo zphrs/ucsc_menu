@@ -8,104 +8,139 @@ mod fetch;
 mod parse;
 mod transpose;
 
+use log;
+
 use std::{
-    convert::Infallible, env, error::Error, net::SocketAddr, str::FromStr, sync::Arc,
+    env,
+    net::SocketAddr,
+    str::FromStr,
+    sync::{Arc, OnceLock},
     time::Duration,
 };
 
-use axum::http::HeaderValue;
-use hyper::{
-    server::conn::http1, server::conn::http2, service::service_fn, Method, Response, StatusCode,
+use axum::{
+    body::Body,
+    extract::{Request, State, WebSocketUpgrade},
+    http::HeaderValue,
+    middleware,
+    response::{Html, IntoResponse, Response},
+    routing::{get, on, MethodFilter},
+    Extension, Router,
 };
-use hyper_util::rt::TokioIo;
-use juniper::{EmptyMutation, EmptySubscription, RootNode};
-use juniper_hyper::{graphiql, graphql, playground};
+use futures::stream::{BoxStream, StreamExt as _};
+use hyper::StatusCode;
+use juniper::{
+    graphql_object, graphql_subscription, Context, EmptyMutation, EmptySubscription, FieldError,
+    RootNode,
+};
+use juniper_axum::{
+    extract::JuniperRequest,
+    graphiql, graphql, playground,
+    response::JuniperResponse,
+    subscriptions::{self, serve_graphql_transport_ws, serve_graphql_ws},
+    ws,
+};
+use juniper_graphql_ws::ConnectionConfig;
+use parse::Locations;
 use tokio::{
     net::TcpListener,
-    time::{sleep, Instant},
+    sync::OnceCell,
+    time::{interval, sleep},
 };
 use tower_http::compression::CompressionLayer;
-use tracing::trace;
-use url::Url;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    env::set_var("RUST_LOG", "ucsc_menu=info");
-    pretty_env_logger::init();
+use crate::{cache::MultithreadedCache, fetch::make_client};
 
-    let db = Arc::new(cache::MultithreadedCache::new().await.unwrap());
-    let addr = SocketAddr::from_str(&format!(
-        "{}:{}",
-        env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string()),
-        env::var("PORT").unwrap_or_else(|_| "3000".to_string())
-    ))
-    .unwrap();
-    let listener = TcpListener::bind(addr).await?;
-    let comression_layer: CompressionLayer = CompressionLayer::new().gzip(true);
-    log::info!("Listening on http://{addr}");
-    tokio::spawn(async move {
-        loop {
-            log::info!("Forcing a cache refresh");
-            // let n = Instant::now();
-            // db1.refresh().await.unwrap();
-            // log::info!("Finished refreshing cache in {:?}", n.elapsed());
-            let client = fetch::make_client();
-            let url = Url::from_str(&format!("https://graphql.ucsc.menu/request-refresh")).unwrap();
-            let _ = client.patch(url).send().await;
-            log::info!("Forced cache refresh done");
-            sleep(Duration::from_secs(15 * 60)).await;
-        }
-    });
-    loop {
-        let (stream, _) = listener.accept().await?;
-        let io = TokioIo::new(stream);
-        let db = db.clone();
-        // let root_node = root_node.clone();
-        tokio_scoped::scope(|scope| {
-            let s = scope;
-            let db = db.clone();
-            s.spawn(async move {
-                // let root_node = root_node.clone();
+#[derive(Clone, Copy, Debug)]
+pub struct Query;
 
-                if let Err(e) = http1::Builder::new()
-                    .serve_connection(
-                        io,
-                        service_fn(|req| async {
-                            let root_node = Arc::new(db.get_root_node().await);
-                            Ok::<_, Infallible>(match (req.method(), req.uri().path()) {
-                                (&Method::GET, "/graphql") | (&Method::POST, "/graphql") => {
-                                    let mut res = graphql(root_node, Arc::new(()), req).await;
-                                    res.headers_mut().append(
-                                        "Access-Control-Allow-Origin",
-                                        HeaderValue::from_static("*"),
-                                    );
-                                    res
-                                }
-                                (&Method::GET, "/graphiql") => graphiql("/graphql", None).await,
-                                (&Method::GET, "/playground") => playground("/graphql", None).await,
-                                (&Method::PATCH, "/request-refresh") => {
-                                    log::info!("Refreshing cache");
-                                    let n = Instant::now();
-                                    db.refresh().await.unwrap();
-                                    log::info!("Finished refreshing cache in {:?}", n.elapsed());
-                                    let mut resp = Response::new(String::new());
-                                    *resp.status_mut() = StatusCode::CREATED;
-                                    resp.body_mut().push_str("OK");
-                                    resp
-                                }
-                                _ => {
-                                    let mut resp = Response::new(String::new());
-                                    *resp.status_mut() = StatusCode::NOT_FOUND;
-                                    resp
-                                }
-                            })
-                        }),
-                    )
-                    .await
-                {
-                    log::error!("Error serving connection: {e}");
-                }
-            });
-        });
+static CACHE: OnceCell<MultithreadedCache<'static>> = OnceCell::const_new();
+#[graphql_object]
+impl Query {
+    /// Adds two `a` and `b` numbers.
+    async fn query(&self) -> Locations<'static> {
+        let c = CACHE.get_or_init(|| async { MultithreadedCache::new().await.unwrap() });
+        c.await.get().await.locations().to_owned()
     }
+    #[graphql(ignore)]
+    pub async fn refresh(self) {
+        let c = CACHE.get_or_init(|| async { MultithreadedCache::new().await.unwrap() });
+        let _ = c.await.refresh().await;
+    }
+}
+
+impl Query {}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Subscription;
+
+type NumberStream = BoxStream<'static, Result<i32, FieldError>>;
+
+type Schema = RootNode<'static, Query, EmptyMutation, EmptySubscription>;
+
+#[cfg(all(target_env = "musl", target_pointer_width = "64"))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+async fn refresh<'a>() -> Response {
+    let cache = CACHE
+        .get_or_init(|| async { MultithreadedCache::new().await.unwrap() })
+        .await;
+    let _res = cache.refresh().await;
+    Response::builder()
+        .status(201)
+        .body(Body::from("OK"))
+        .unwrap()
+}
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() {
+    CACHE
+        .get_or_init(|| async { MultithreadedCache::new().await.unwrap() })
+        .await;
+    let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
+    let addr = SocketAddr::from_str(format!("{}:{}", host, port).as_str()).unwrap();
+    let schema = Schema::new(Query, EmptyMutation::new(), EmptySubscription::new());
+    let comression_layer: CompressionLayer = CompressionLayer::new()
+        .br(true)
+        .deflate(true)
+        .gzip(true)
+        .zstd(true);
+    pretty_env_logger::init_custom_env("ucsc_menu=info");
+
+    let app = Router::new()
+        .route(
+            "/graphql",
+            on(
+                MethodFilter::GET.or(MethodFilter::POST),
+                graphql::<Arc<Schema>>,
+            ),
+        )
+        .route(
+            "/subscriptions",
+            get(ws::<Arc<Schema>>(ConnectionConfig::new(()))),
+        )
+        .route("/request-refresh", on(MethodFilter::PUT, refresh))
+        .route("/graphiql", get(graphiql("/graphql", "/subscriptions")))
+        .route("/playground", get(playground("/graphql", "/subscriptions")))
+        .layer(Extension(Arc::new(schema)))
+        .layer(comression_layer);
+    tokio::spawn(async move {
+        let client = make_client();
+        log::info!("Forcing refresh");
+        let _res = client
+            .put(format!("http://{addr}/request-refresh"))
+            .send()
+            .await;
+        log::info!("Forcing refresh done");
+        sleep(Duration::from_secs(15 * 60)).await;
+    });
+    let listener = TcpListener::bind(addr)
+        .await
+        .unwrap_or_else(|e| panic!("failed to listen on {addr}: {e}"));
+    log::info!("listening on http://{addr}");
+    axum::serve(listener, app)
+        .await
+        .unwrap_or_else(|e| panic!("failed to run `axum::serve`: {e}"));
 }
