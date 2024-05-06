@@ -1,12 +1,10 @@
 use chrono::NaiveDate;
 
-use juniper::{graphql_object};
+use juniper::graphql_object;
 
-use super::meal::{Meal, MealType};
+use super::meal::{Meal, Type};
 use crate::parse::Error;
 use crate::static_selector;
-
-
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DailyMenu<'a> {
@@ -17,20 +15,21 @@ pub struct DailyMenu<'a> {
 
 #[graphql_object]
 impl<'a> DailyMenu<'a> {
-    pub fn date(&self) -> NaiveDate {
+    pub const fn date(&self) -> NaiveDate {
         self.date
     }
 
-    pub fn meals(&self, meal_type: Option<MealType>) -> Vec<Meal<'a>> {
-        match meal_type {
-            Some(meal_type) => self
-                .meals
-                .iter()
-                .filter(|meal| meal.meal_type == meal_type)
-                .cloned()
-                .collect::<Vec<_>>(),
-            None => self.meals.clone(),
-        }
+    pub fn meals(&self, meal_type: Option<Type>) -> Vec<Meal<'a>> {
+        meal_type.map_or_else(
+            || self.meals.clone(),
+            |meal_type| {
+                self.meals
+                    .iter()
+                    .filter(|meal| meal.meal_type == meal_type)
+                    .cloned()
+                    .collect::<Vec<_>>()
+            },
+        )
     }
 }
 

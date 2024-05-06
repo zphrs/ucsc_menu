@@ -25,7 +25,7 @@ impl<'de> serde::Deserialize<'de> for LocationMeta {
 impl Eq for LocationMeta {}
 
 impl LocationMeta {
-    pub fn url(&self) -> &Url {
+    pub const fn url(&self) -> &Url {
         &self.url
     }
 

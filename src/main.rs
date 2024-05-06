@@ -24,22 +24,22 @@ use parse::Locations;
 use tokio::{net::TcpListener, sync::OnceCell, time::sleep};
 use tower_http::compression::CompressionLayer;
 
-use crate::{cache::MultithreadedCache, fetch::make_client};
+use crate::{cache::Multithreaded, fetch::make_client};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Query;
 
-static CACHE: OnceCell<MultithreadedCache<'static>> = OnceCell::const_new();
+static CACHE: OnceCell<Multithreaded<'static>> = OnceCell::const_new();
 #[graphql_object]
 impl Query {
     /// Adds two `a` and `b` numbers.
     async fn query(&self) -> Locations<'static> {
-        let c = CACHE.get_or_init(|| async { MultithreadedCache::new().await.unwrap() });
+        let c = CACHE.get_or_init(|| async { Multithreaded::new().await.unwrap() });
         c.await.get().await.locations().to_owned()
     }
     #[graphql(ignore)]
     pub async fn refresh(self) {
-        let c = CACHE.get_or_init(|| async { MultithreadedCache::new().await.unwrap() });
+        let c = CACHE.get_or_init(|| async { Multithreaded::new().await.unwrap() });
         let _ = c.await.refresh().await;
     }
 }
@@ -57,7 +57,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 async fn refresh<'a>() -> Response {
     let cache = CACHE
-        .get_or_init(|| async { MultithreadedCache::new().await.unwrap() })
+        .get_or_init(|| async { Multithreaded::new().await.unwrap() })
         .await;
     let _res = cache.refresh().await;
     Response::builder()
@@ -69,7 +69,7 @@ async fn refresh<'a>() -> Response {
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     CACHE
-        .get_or_init(|| async { MultithreadedCache::new().await.unwrap() })
+        .get_or_init(|| async { Multithreaded::new().await.unwrap() })
         .await;
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());

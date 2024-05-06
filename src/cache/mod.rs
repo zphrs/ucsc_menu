@@ -1,4 +1,4 @@
 mod menu_cache;
-mod multithreaded;
+mod multithreaded_cache;
 
-pub use multithreaded::MultithreadedCache;
+pub use multithreaded_cache::MultithreadedCache as Multithreaded;

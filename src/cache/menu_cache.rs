@@ -1,15 +1,12 @@
-use std::{sync::OnceLock};
-
 use crate::{
     error::Error,
-    fetch::{date_iter, fetch_locations_page, fetch_menus_on_date, make_client},
+    fetch::{date_iter, locations_page, make_client, menus_on_date},
     parse::Locations,
     transpose::transposed,
 };
 use chrono::{DateTime, Utc};
-use firestore::{FirestoreDb};
+use firestore::FirestoreDb;
 use futures::{stream::FuturesUnordered, StreamExt};
-
 
 const CACHES_COLLECTION: &str = "caches";
 
@@ -23,15 +20,6 @@ pub struct MenuCache<'a> {
 struct InDbMenuCache {
     cached_at: DateTime<Utc>,
     data: String,
-}
-
-impl InDbMenuCache {
-    pub fn new(data: String) -> Self {
-        Self {
-            data,
-            ..Default::default()
-        }
-    }
 }
 
 impl<'a> From<InDbMenuCache> for MenuCache<'a> {
@@ -51,12 +39,13 @@ impl<'a> From<InDbMenuCache> for MenuCache<'a> {
     }
 }
 
-impl<'a> From<MenuCache<'a>> for InDbMenuCache {
-    fn from(cache: MenuCache<'a>) -> Self {
-        Self {
+impl<'a> TryFrom<MenuCache<'a>> for InDbMenuCache {
+    type Error = crate::error::Error;
+    fn try_from(cache: MenuCache<'a>) -> Result<Self, Error> {
+        Ok(Self {
             cached_at: cache.cached_at,
-            data: serde_json::to_string(&cache.locations).unwrap(),
-        }
+            data: serde_json::to_string(&cache.locations)?,
+        })
     }
 }
 
@@ -68,13 +57,7 @@ impl<'a> Default for MenuCache<'a> {
         }
     }
 }
-
-static DB: OnceLock<FirestoreDb> = OnceLock::new();
-
 impl<'a> MenuCache<'a> {
-    pub fn is_empty(&self) -> bool {
-        self.locations.is_empty()
-    }
     pub async fn open() -> Result<Self, Error> {
         let cache = Self::fetch_from_db().await?;
         Ok(cache)
@@ -124,7 +107,7 @@ impl<'a> MenuCache<'a> {
     /// Returns whether or not it refreshed. Will return error if it fails
     async fn refresh(&mut self) -> Result<(), crate::error::Error> {
         let client = make_client();
-        let locations_page = fetch_locations_page(&client).await?;
+        let locations_page = locations_page(&client).await?;
         let mut locations = {
             let parsed = scraper::Html::parse_document(&locations_page);
             let locations: Locations = Locations::from_html_element(parsed.root_element())?;
@@ -133,7 +116,7 @@ impl<'a> MenuCache<'a> {
         {
             let start_date = chrono::Utc::now().date_naive() - chrono::Duration::days(1); // subtract one day to make sure we try to get today's menu due to timezones
             let week_menus: FuturesUnordered<_> = date_iter(start_date, 10)
-                .map(|x| fetch_menus_on_date(&client, &locations, Some(x)))
+                .map(|x| menus_on_date(&client, &locations, Some(x)))
                 .collect();
             let week_menus: Vec<_> = week_menus.collect().await;
             let valid_week_menus = week_menus.into_iter().filter_map(Result::ok).collect();
@@ -158,14 +141,13 @@ impl<'a> MenuCache<'a> {
         Ok(())
     }
 
-    pub fn locations(&self) -> &Locations<'a> {
+    pub const fn locations(&self) -> &Locations<'a> {
         &self.locations
     }
 }
 
 #[cfg(test)]
 mod tests {
-    
 
     use super::*;
 

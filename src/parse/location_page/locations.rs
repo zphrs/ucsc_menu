@@ -1,6 +1,4 @@
-
 use std::slice::{Iter, IterMut};
-
 
 use chrono::NaiveDate;
 use juniper::{graphql_object, GraphQLInputObject};
@@ -11,7 +9,7 @@ use crate::{parse::Error, static_selector};
 
 use super::location_meta::LocationMeta;
 
-use super::location_data::{LocationData};
+use super::location_data::LocationData;
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq, Clone)]
 pub struct Location<'a>(LocationData<'a>, LocationMeta);
@@ -30,6 +28,7 @@ impl<'a> Location<'a> {
     pub fn name(&self) -> &str {
         self.1.name()
     }
+    #[allow(clippy::needless_pass_by_value)] // ignored because graphql doesn't support pass by reference
     pub fn menus(&self, date_range: Option<DateRange>) -> Vec<&DailyMenu<'a>> {
         if let Some(DateRange { start, end }) = date_range {
             self.0
@@ -64,10 +63,10 @@ impl<'a> Location<'a> {
         Ok(())
     }
 
-    pub fn metadata(&self) -> &LocationMeta {
+    pub const fn metadata(&self) -> &LocationMeta {
         &self.1
     }
-
+    #[cfg(test)]
     pub fn hydrated(&self) -> bool {
         !self.0.is_empty()
     }
@@ -83,16 +82,18 @@ pub struct Locations<'a> {
 
 #[graphql_object]
 impl<'a> Locations<'a> {
+    #[allow(clippy::needless_pass_by_value)] // ignored because graphql doesn't support pass by reference
     pub fn locations(&self, ids: Option<Vec<String>>) -> Vec<&Location<'a>> {
-        if let Some(ids) = &ids {
-            let ids: Vec<&str> = ids.iter().map(std::string::String::as_str).collect();
-            self.locations
-                .iter()
-                .filter(|location| ids.contains(&location.1.id()))
-                .collect()
-        } else {
-            self.locations.iter().collect()
-        }
+        ids.map_or_else(
+            || self.locations.iter().collect(),
+            |ids| {
+                let ids: Vec<&str> = ids.iter().map(std::string::String::as_str).collect();
+                self.locations
+                    .iter()
+                    .filter(|location| ids.contains(&location.1.id()))
+                    .collect()
+            },
+        )
     }
 }
 
@@ -117,10 +118,6 @@ impl<'a> Locations<'a> {
         Ok(Self { locations })
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.locations.is_empty()
-    }
-
     pub fn iter_mut(&mut self) -> IterMut<Location<'a>> {
         self.locations.iter_mut()
     }
@@ -128,7 +125,8 @@ impl<'a> Locations<'a> {
     pub fn iter(&self) -> Iter<Location<'a>> {
         self.locations.iter()
     }
-
+    // might eventually be used for diffing
+    #[cfg(unused)]
     pub fn add_meals<'b: 'a>(
         &mut self,
         htmls: impl Iterator<Item = &'b Html>,
@@ -157,7 +155,7 @@ mod tests {
     use url::Url;
 
     use super::*;
-    use std::fs;
+    use std::{collections::HashMap, fs};
 
     #[test]
     fn test_from_html_element() {
@@ -211,7 +209,7 @@ mod tests {
                 }
             }
         "#;
-        let binding: Variables = Default::default();
+        let binding: Variables = HashMap::default();
         let res = juniper::execute(query, None, &root, &binding, &())
             .await
             .unwrap();
@@ -240,7 +238,7 @@ mod tests {
                 }
             }
         ";
-        let binding: Variables = Default::default();
+        let binding: Variables = HashMap::default();
         let res = juniper::execute(query, None, &root, &binding, &())
             .await
             .unwrap();

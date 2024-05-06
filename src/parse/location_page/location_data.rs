@@ -13,12 +13,12 @@ pub struct LocationData<'a> {
 
 const ARRAY_REPEAT_VALUE: std::option::Option<DailyMenu<'static>> = None;
 impl<'a> LocationData<'a> {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             menus: [ARRAY_REPEAT_VALUE; NUM_MEALS],
         }
     }
-
+    #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         self.menus.iter().all(std::option::Option::is_none)
     }
@@ -27,16 +27,18 @@ impl<'a> LocationData<'a> {
         self.menus.iter_mut().for_each(|x| *x = None);
     }
 
+    #[cfg(test)]
     pub fn menus_mut(&mut self) -> impl Iterator<Item = &mut DailyMenu<'a>> {
         self.menus
             .iter_mut()
-            .filter_map(|x| if let Some(meal) = x { Some(meal) } else { None })
+            .filter_map(|x| x.as_mut())
     }
 
     pub fn menus(&self) -> impl Iterator<Item = &DailyMenu<'a>> {
         self.menus.iter().filter_map(|x| x.as_ref())
     }
 
+    #[cfg(unused)]
     pub fn remove_meals_before(&mut self, date: chrono::NaiveDate) {
         for meal in &mut self.menus {
             if let Some(m) = meal {

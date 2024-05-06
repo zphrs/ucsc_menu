@@ -25,6 +25,8 @@ impl AllergenInfo {
     fn img_url_to_allergen(img_url: &str) -> Result<AllergenFlags, Error> {
         // verify that the image url starts with "LegendImages/"
         const PREFIX: &str = "LegendImages/";
+        const SUFFIX: &str = ".gif";
+
         if !img_url.starts_with(PREFIX) {
             return Err(Error::html_parse_error(
                 "Allergen image url does not start with LegendImages/",
@@ -33,7 +35,6 @@ impl AllergenInfo {
         // chop off the "LegendImages/" prefix
         let img_url = &img_url[PREFIX.len()..];
         // verify that the image url ends with ".gif"
-        const SUFFIX: &str = ".gif";
         if !img_url.ends_with(SUFFIX) {
             return Err(Error::html_parse_error(
                 "Allergen image url does not end with .gif",
@@ -63,13 +64,13 @@ impl AllergenInfo {
         };
         Ok(res)
     }
-    pub fn is_all(&self) -> bool {
+    pub const fn is_all(self) -> bool {
         self.0.is_all()
     }
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(self) -> bool {
         self.0.is_empty()
     }
-    pub fn contains(&self, flags: AllergenFlags) -> bool {
+    pub const fn contains(self, flags: AllergenFlags) -> bool {
         self.0.contains(flags)
     }
 }

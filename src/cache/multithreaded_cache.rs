@@ -1,12 +1,8 @@
-use super::menu_cache::{MenuCache};
-use crate::{error::Error, parse::Locations};
-use std::{
-    ops::{Deref},
-};
-
+use super::menu_cache::MenuCache;
+use crate::error::Error;
+use std::ops::Deref;
 
 use futures_locks::RwLock;
-use juniper::{EmptyMutation, EmptySubscription, RootNode};
 
 #[derive(Debug)]
 pub struct MultithreadedCache<'a>(RwLock<MenuCache<'a>>);
@@ -36,22 +32,10 @@ impl<'a> MultithreadedCache<'a> {
     {
         self.0.read().await
     }
-    pub async fn get_root_node<'b>(
-        &'b self,
-    ) -> RootNode<'static, Locations, EmptyMutation, EmptySubscription> {
-        RootNode::new(
-            self.0.read().await.locations().to_owned(),
-            EmptyMutation::<()>::new(),
-            EmptySubscription::<()>::new(),
-        )
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    
-
-    
 
     use super::*;
 

@@ -1,9 +1,4 @@
-use std::{
-    num::NonZeroU32,
-    sync::{OnceLock},
-    time::Duration,
-};
-
+use std::{num::NonZeroU32, sync::OnceLock, time::Duration};
 
 use governor::{
     clock::{QuantaClock, QuantaInstant},
@@ -15,7 +10,7 @@ use tracing::{instrument, Level};
 
 use crate::parse::{LocationMeta, Locations};
 
-pub async fn fetch_locations_page(client: &reqwest::Client) -> Result<String, RequestError> {
+pub async fn locations_page(client: &reqwest::Client) -> Result<String, RequestError> {
     static URL: &str = "https://nutrition.sa.ucsc.edu/";
     let response = client.get(URL).send().await?;
     response.text().await
@@ -56,10 +51,8 @@ pub async fn fetch_location_page(
     });
     let retry_jitter = governor::Jitter::new(Duration::ZERO, Duration::from_secs(DELAY_JITTER));
     rate_limiter.until_ready_with_jitter(retry_jitter).await;
-
-    static COOKIES: &str = "WebInaCartDates=;  WebInaCartMeals=; WebInaCartQtys=; WebInaCartRecipes=; WebInaCartLocation=";
     let id = location_meta.id();
-    let cookies = format!("{COOKIES}{id}");
+    let cookies = format!("WebInaCartDates=;  WebInaCartMeals=; WebInaCartQtys=; WebInaCartRecipes=; WebInaCartLocation={id}");
     let mut url = location_meta.url().to_owned();
     if let Some(date) = date {
         url.query_pairs_mut()
@@ -75,7 +68,7 @@ pub async fn fetch_location_page(
     Ok(text)
 }
 
-pub async fn fetch_menus_on_date(
+pub async fn menus_on_date(
     client: &reqwest::Client,
     locations: &Locations<'_>,
     date: Option<chrono::NaiveDate>,
@@ -94,32 +87,19 @@ pub fn date_iter(start: chrono::NaiveDate, count: i64) -> impl Iterator<Item = c
 
 #[cfg(test)]
 mod tests {
-    
 
-    use crate::{parse::Locations};
+    use crate::parse::Locations;
 
     use super::*;
-    
-    
-    use url::Url;
 
-    fn setup_tracing() {
-        // let file_appender = tracing_appender::rolling::hourly("./", "fetch_locations.log");
-        let subscriber = tracing_subscriber::fmt()
-            .compact()
-            .with_max_level(tracing::Level::DEBUG)
-            // .with_writer(file_appender)
-            .with_target(false)
-            .finish();
-        tracing::subscriber::set_global_default(subscriber).unwrap();
-    }
+    use url::Url;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn test_fetch_locations_page() {
         // setup_tracing();
         let start_time = std::time::Instant::now();
         let client = make_client();
-        let page = fetch_locations_page(&client).await.unwrap();
+        let page = locations_page(&client).await.unwrap();
         println!(
             "Time taken to get locations page: {:?}",
             start_time.elapsed()

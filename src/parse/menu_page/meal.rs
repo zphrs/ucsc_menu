@@ -1,7 +1,7 @@
 use std::{borrow::Cow, iter::Peekable, vec};
 
 use juniper::{graphql_object, GraphQLEnum, GraphQLObject};
-use regex::{RegexBuilder};
+use regex::RegexBuilder;
 use scraper::{element_ref::Select, selectable::Selectable};
 
 use crate::{
@@ -16,7 +16,7 @@ use super::{
 use crate::parse::Error;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, GraphQLEnum, serde::Serialize, serde::Deserialize)]
-pub enum MealType {
+pub enum Type {
     Breakfast,
     Lunch,
     Dinner,
@@ -28,8 +28,8 @@ pub enum MealType {
 }
 #[derive(Debug, GraphQLObject, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Meal<'a> {
-    pub meal_type: MealType,
-    pub sections: Vec<MealSection<'a>>,
+    pub meal_type: Type,
+    pub sections: Vec<Section<'a>>,
 }
 
 impl<'a> Meal<'a> {
@@ -48,20 +48,20 @@ impl<'a> Meal<'a> {
             text_from_selection(&MEAL_TYPE_SELECTOR, meal_name_row, "meal", "meal type")?;
         // print out meal type
         let meal_type = match meal_type {
-            "Breakfast" => MealType::Breakfast,
-            "Lunch" => MealType::Lunch,
-            "Dinner" => MealType::Dinner,
-            "Late Night" => MealType::LateNight,
-            "Late Night @ Banana Joe's" => MealType::BananaJoes,
-            "Menu" => MealType::Menu,
-            "All Day" => MealType::AllDay,
-            _ => MealType::Unknown,
+            "Breakfast" => Type::Breakfast,
+            "Lunch" => Type::Lunch,
+            "Dinner" => Type::Dinner,
+            "Late Night" => Type::LateNight,
+            "Late Night @ Banana Joe's" => Type::BananaJoes,
+            "Menu" => Type::Menu,
+            "All Day" => Type::AllDay,
+            _ => Type::Unknown,
         };
 
         static_selector!(SECTION_NAME_SELECTOR <- "table > tbody > tr");
         let section_elements = meal_item_row.select(&SECTION_NAME_SELECTOR);
         let sections = SectionIterator::new(section_elements.peekable(), meal_type);
-        let mut sections_vec: Vec<MealSection> = vec![];
+        let mut sections_vec: Vec<Section> = vec![];
         for section in sections {
             match section {
                 Ok(section) => {
@@ -83,38 +83,34 @@ impl<'a> Meal<'a> {
 
 pub struct SectionIterator<'a> {
     elements: Peekable<Select<'a, 'a>>,
-    meal_type: MealType,
 }
 
 impl<'a> SectionIterator<'a> {
-    pub fn new(elements: Peekable<Select<'a, 'a>>, meal_type: MealType) -> Self {
-        SectionIterator {
-            elements,
-            meal_type,
-        }
+    pub const fn new(elements: Peekable<Select<'a, 'a>>, _meal_type: Type) -> Self {
+        SectionIterator { elements }
     }
 }
 
 impl<'a> Iterator for SectionIterator<'a> {
-    type Item = Result<MealSection<'a>, Error>;
+    type Item = Result<Section<'a>, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let elements = &mut self.elements;
         // check if there are any elements left
         elements.peek()?; // if there are no elements left, return None
-        let section = MealSection::from_html_elements(elements);
+        let section = Section::from_html_elements(elements);
         Some(section)
     }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct MealSection<'a> {
+pub struct Section<'a> {
     pub name: Cow<'a, str>,
     pub food_items: Vec<FoodItem<'a>>,
 }
 
 #[graphql_object]
-impl<'a> MealSection<'a> {
+impl<'a> Section<'a> {
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -126,9 +122,12 @@ impl<'a> MealSection<'a> {
         contains_any_allergens: Option<Vec<Allergens>>,
         name_contains: Option<String>,
     ) -> Vec<FoodItem<'a>> {
-        let contains_all_mask: Option<AllergenFlags> = contains_all_allergens.map(std::convert::Into::into);
-        let excludes_all_mask: Option<AllergenFlags> = excludes_all_allergens.map(std::convert::Into::into);
-        let contains_any_mask: Option<AllergenFlags> = contains_any_allergens.map(std::convert::Into::into);
+        let contains_all_mask: Option<AllergenFlags> =
+            contains_all_allergens.map(std::convert::Into::into);
+        let excludes_all_mask: Option<AllergenFlags> =
+            excludes_all_allergens.map(std::convert::Into::into);
+        let contains_any_mask: Option<AllergenFlags> =
+            contains_any_allergens.map(std::convert::Into::into);
         let allergen_filter = |food_item: &&FoodItem<'a>| {
             let mask = food_item.get_allergen_mask();
             let mut out = true;
@@ -158,7 +157,7 @@ impl<'a> MealSection<'a> {
     }
 }
 
-impl<'a> MealSection<'a> {
+impl<'a> Section<'a> {
     // takes in an iterator of tr elements of a specific meal and consumes the elements to create a MealSection
     pub fn from_html_elements(elements: &mut Peekable<Select<'a, 'a>>) -> Result<Self, Error> {
         static_selector!(SECTION_NAME_SELECTOR <- ".shortmenucats > span");
@@ -186,7 +185,7 @@ impl<'a> MealSection<'a> {
             elements.next();
             elements.next();
         }
-        Ok(MealSection { name, food_items })
+        Ok(Section { name, food_items })
     }
 
     fn handle_element(element: scraper::ElementRef<'a>) -> Result<Option<FoodItem<'a>>, Error> {
@@ -206,9 +205,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use std::{
-        fs,
-    };
+    use std::fs;
 
     #[test]
     fn test_meal_parse() {
@@ -217,7 +214,7 @@ mod tests {
         let document = scraper::Html::parse_document(&html);
         let meal = Meal::from_html_element(document.root_element())
             .expect("The example html should be valid");
-        assert_eq!(meal.meal_type, MealType::Breakfast);
+        assert_eq!(meal.meal_type, Type::Breakfast);
         assert_eq!(meal.sections.len(), 3);
         // print out the names of the sections
         println!("{:#?}", meal.sections);
