@@ -7,6 +7,7 @@ use crate::{
 use chrono::{DateTime, Utc};
 use firestore::FirestoreDb;
 use futures::{stream::FuturesUnordered, StreamExt};
+use tokio::io::AsyncReadExt;
 
 const CACHES_COLLECTION: &str = "caches";
 
@@ -19,19 +20,23 @@ pub struct MenuCache<'a> {
 #[derive(serde::Serialize, serde::Deserialize, Default)]
 struct InDbMenuCache {
     cached_at: DateTime<Utc>,
-    data: String,
+    data: Vec<u8>,
 }
 
-impl<'a> From<InDbMenuCache> for MenuCache<'a> {
-    fn from(cache: InDbMenuCache) -> Self {
+impl<'a> MenuCache<'a> {
+    async fn from_async(cache: InDbMenuCache) -> Self {
         if cache.data.is_empty() {
             return MenuCache {
                 cached_at: cache.cached_at,
                 locations: Locations::default(),
             };
         }
+        let mut uncompressed =
+            async_compression::tokio::bufread::GzipDecoder::new(cache.data.as_slice());
+        let mut dst = String::with_capacity(cache.data.len() * 8);
+        uncompressed.read_to_string(&mut dst).await;
         let locations: Locations =
-            serde_json::from_str(&cache.data).expect("Data parse should always be valid");
+            serde_json::from_str(&dst).expect("Data parse should always be valid");
         MenuCache {
             cached_at: cache.cached_at,
             locations,
@@ -42,9 +47,14 @@ impl<'a> From<InDbMenuCache> for MenuCache<'a> {
 impl<'a> TryFrom<MenuCache<'a>> for InDbMenuCache {
     type Error = crate::error::Error;
     fn try_from(cache: MenuCache<'a>) -> Result<Self, Error> {
+        let mut json = serde_json::to_string(&cache.locations)?;
+        let mut compressed = Vec::with_capacity(json.len() / 4);
+        let mut compress =
+            async_compression::tokio::bufread::GzipEncoder::new(std::io::Cursor::new(json));
+        compress.read_buf(&mut compressed);
         Ok(Self {
             cached_at: cache.cached_at,
-            data: serde_json::to_string(&cache.locations)?,
+            data: compressed,
         })
     }
 }
@@ -82,18 +92,23 @@ impl<'a> MenuCache<'a> {
             .one("menu")
             .await?
             .unwrap_or_default(); // default is an empty cache
-        Ok(cache.into())
+        Ok(MenuCache::from_async(cache).await)
     }
 
-    fn to_db_representation(&self) -> InDbMenuCache {
+    async fn to_db_representation(&self) -> InDbMenuCache {
+        let json = serde_json::to_string(self.locations()).unwrap();
+        let mut compressed = Vec::with_capacity(json.len() / 4);
+        let mut compress =
+            async_compression::tokio::bufread::GzipEncoder::new(std::io::Cursor::new(json));
+        compress.read_buf(&mut compressed).await;
         InDbMenuCache {
-            data: serde_json::to_string(&self.locations).unwrap(),
             cached_at: self.cached_at,
+            data: compressed,
         }
     }
 
     async fn save_to_db(&self) -> Result<(), firestore::errors::FirestoreError> {
-        let cache: InDbMenuCache = self.to_db_representation();
+        let cache: InDbMenuCache = self.to_db_representation().await;
         let db = FirestoreDb::new("ucsc-menu").await?;
         db.fluent()
             .update()

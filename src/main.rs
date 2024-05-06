@@ -3,7 +3,7 @@
 #![deny(unused_crate_dependencies)]
 #![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 
-use axum_server as _;
+use axum_server as _; // to use rustls over openssl bc alpine linux
 
 mod cache;
 mod error;
