@@ -44,21 +44,6 @@ impl<'a> MenuCache<'a> {
     }
 }
 
-impl<'a> TryFrom<MenuCache<'a>> for InDbMenuCache {
-    type Error = crate::error::Error;
-    fn try_from(cache: MenuCache<'a>) -> Result<Self, Error> {
-        let mut json = serde_json::to_string(&cache.locations)?;
-        let mut compressed = Vec::with_capacity(json.len() / 4);
-        let mut compress =
-            async_compression::tokio::bufread::GzipEncoder::new(std::io::Cursor::new(json));
-        compress.read_buf(&mut compressed);
-        Ok(Self {
-            cached_at: cache.cached_at,
-            data: compressed,
-        })
-    }
-}
-
 impl<'a> Default for MenuCache<'a> {
     fn default() -> Self {
         Self {
@@ -100,7 +85,10 @@ impl<'a> MenuCache<'a> {
         let mut compressed = Vec::with_capacity(json.len() / 4);
         let mut compress =
             async_compression::tokio::bufread::GzipEncoder::new(std::io::Cursor::new(json));
-        compress.read_buf(&mut compressed).await;
+        compress
+            .read_buf(&mut compressed)
+            .await
+            .expect("This should succeed");
         InDbMenuCache {
             cached_at: self.cached_at,
             data: compressed,
@@ -164,6 +152,8 @@ impl<'a> MenuCache<'a> {
 #[cfg(test)]
 mod tests {
 
+    use std::time::Instant;
+
     use super::*;
 
     #[tokio::test]
@@ -174,6 +164,8 @@ mod tests {
     #[tokio::test]
     async fn test_refresh() {
         let mut mc = MenuCache::open().await.unwrap();
+        let start = Instant::now();
         mc.refresh().await.unwrap();
+        println!("{:?}", start.elapsed());
     }
 }
