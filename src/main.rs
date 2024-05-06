@@ -16,8 +16,8 @@ use axum::{
     routing::{get, on, MethodFilter},
     Extension, Router,
 };
-use futures::stream::BoxStream;
-use juniper::{graphql_object, EmptyMutation, EmptySubscription, FieldError, RootNode};
+
+use juniper::{graphql_object, EmptyMutation, EmptySubscription, RootNode};
 use juniper_axum::{graphiql, graphql, playground, ws};
 use juniper_graphql_ws::ConnectionConfig;
 use parse::Locations;
