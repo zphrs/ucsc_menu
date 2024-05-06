@@ -166,23 +166,23 @@ impl From<AllergenFlags> for Vec<Allergens> {
 }
 
 impl From<Allergens> for AllergenFlags {
-    fn from(allergen: Allergens) -> AllergenFlags {
+    fn from(allergen: Allergens) -> Self {
         match allergen {
-            Allergens::Egg => AllergenFlags::Egg,
-            Allergens::Fish => AllergenFlags::Fish,
-            Allergens::GlutenFriendly => AllergenFlags::GlutenFriendly,
-            Allergens::Milk => AllergenFlags::Milk,
-            Allergens::Peanut => AllergenFlags::Peanut,
-            Allergens::Soy => AllergenFlags::Soy,
-            Allergens::TreeNut => AllergenFlags::TreeNut,
-            Allergens::Alcohol => AllergenFlags::Alcohol,
-            Allergens::Vegan => AllergenFlags::Vegan,
-            Allergens::Vegetarian => AllergenFlags::Vegetarian,
-            Allergens::Pork => AllergenFlags::Pork,
-            Allergens::Beef => AllergenFlags::Beef,
-            Allergens::Halal => AllergenFlags::Halal,
-            Allergens::Shellfish => AllergenFlags::Shellfish,
-            Allergens::Sesame => AllergenFlags::Sesame,
+            Allergens::Egg => Self::Egg,
+            Allergens::Fish => Self::Fish,
+            Allergens::GlutenFriendly => Self::GlutenFriendly,
+            Allergens::Milk => Self::Milk,
+            Allergens::Peanut => Self::Peanut,
+            Allergens::Soy => Self::Soy,
+            Allergens::TreeNut => Self::TreeNut,
+            Allergens::Alcohol => Self::Alcohol,
+            Allergens::Vegan => Self::Vegan,
+            Allergens::Vegetarian => Self::Vegetarian,
+            Allergens::Pork => Self::Pork,
+            Allergens::Beef => Self::Beef,
+            Allergens::Halal => Self::Halal,
+            Allergens::Shellfish => Self::Shellfish,
+            Allergens::Sesame => Self::Sesame,
         }
     }
 }
@@ -324,7 +324,7 @@ mod tests {
             let allergen_flags = AllergenInfo::img_url_to_allergen(img_url)
                 .expect("All img urls in this example should be valid");
             // ensure that the allergen_flags aren't empty
-            println!("img_url: {}", img_url);
+            println!("img_url: {img_url}");
             assert!(!allergen_flags.is_empty());
             all_allergen_flags |= allergen_flags;
         }

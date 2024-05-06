@@ -1,19 +1,17 @@
 use std::{
-    cell::OnceCell,
     num::NonZeroU32,
-    pin::Pin,
-    sync::{Arc, OnceLock},
+    sync::{OnceLock},
     time::Duration,
 };
 
-use futures::future::TryJoinAll;
+
 use governor::{
     clock::{QuantaClock, QuantaInstant},
     middleware::NoOpMiddleware,
     state::InMemoryState,
 };
 use reqwest::{Client, Error as RequestError};
-use tracing::{instrument, trace, Level};
+use tracing::{instrument, Level};
 
 use crate::parse::{LocationMeta, Locations};
 
@@ -96,13 +94,13 @@ pub fn date_iter(start: chrono::NaiveDate, count: i64) -> impl Iterator<Item = c
 
 #[cfg(test)]
 mod tests {
-    use std::{ops::Deref, vec};
+    
 
-    use crate::{parse::Locations, transpose::transposed};
+    use crate::{parse::Locations};
 
     use super::*;
-    use futures::{stream::FuturesUnordered, StreamExt};
-    use tracing::subscriber;
+    
+    
     use url::Url;
 
     fn setup_tracing() {
@@ -144,6 +142,6 @@ mod tests {
         let page = fetch_location_page(&client, &location_meta, None)
             .await
             .unwrap();
-        println!("{:#?}", page);
+        println!("{page:#?}");
     }
 }

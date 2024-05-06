@@ -1,7 +1,7 @@
-use std::{borrow::Cow, iter::Peekable, sync::OnceLock, vec};
+use std::{borrow::Cow, iter::Peekable, vec};
 
 use juniper::{graphql_object, GraphQLEnum, GraphQLObject};
-use regex::{Regex, RegexBuilder};
+use regex::{RegexBuilder};
 use scraper::{element_ref::Select, selectable::Selectable};
 
 use crate::{
@@ -126,9 +126,9 @@ impl<'a> MealSection<'a> {
         contains_any_allergens: Option<Vec<Allergens>>,
         name_contains: Option<String>,
     ) -> Vec<FoodItem<'a>> {
-        let contains_all_mask: Option<AllergenFlags> = contains_all_allergens.map(|x| x.into());
-        let excludes_all_mask: Option<AllergenFlags> = excludes_all_allergens.map(|x| x.into());
-        let contains_any_mask: Option<AllergenFlags> = contains_any_allergens.map(|x| x.into());
+        let contains_all_mask: Option<AllergenFlags> = contains_all_allergens.map(std::convert::Into::into);
+        let excludes_all_mask: Option<AllergenFlags> = excludes_all_allergens.map(std::convert::Into::into);
+        let contains_any_mask: Option<AllergenFlags> = contains_any_allergens.map(std::convert::Into::into);
         let allergen_filter = |food_item: &&FoodItem<'a>| {
             let mask = food_item.get_allergen_mask();
             let mut out = true;
@@ -207,7 +207,6 @@ mod tests {
 
     use super::*;
     use std::{
-        fmt::{Debug, Display},
         fs,
     };
 
@@ -313,6 +312,6 @@ mod tests {
                     }
                   ]
             })
-        )
+        );
     }
 }

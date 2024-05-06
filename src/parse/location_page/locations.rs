@@ -1,6 +1,6 @@
-use std::ops::Deref;
+
 use std::slice::{Iter, IterMut};
-use std::sync::Arc;
+
 
 use chrono::NaiveDate;
 use juniper::{graphql_object, GraphQLInputObject};
@@ -11,7 +11,7 @@ use crate::{parse::Error, static_selector};
 
 use super::location_meta::LocationMeta;
 
-use super::location_data::{LocationData, NUM_MEALS};
+use super::location_data::{LocationData};
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq, Clone)]
 pub struct Location<'a>(LocationData<'a>, LocationMeta);
@@ -85,7 +85,7 @@ pub struct Locations<'a> {
 impl<'a> Locations<'a> {
     pub fn locations(&self, ids: Option<Vec<String>>) -> Vec<&Location<'a>> {
         if let Some(ids) = &ids {
-            let ids: Vec<&str> = ids.iter().map(|x| x.as_str()).collect();
+            let ids: Vec<&str> = ids.iter().map(std::string::String::as_str).collect();
             self.locations
                 .iter()
                 .filter(|location| ids.contains(&location.1.id()))

@@ -13,35 +13,35 @@ pub enum Error {
 
 impl From<parse::Error> for Error {
     fn from(e: parse::Error) -> Self {
-        Error::Parse(e)
+        Self::Parse(e)
     }
 }
 
 impl From<reqwest::Error> for Error {
     fn from(e: reqwest::Error) -> Self {
-        Error::Request(e)
+        Self::Request(e)
     }
 }
 
 impl From<FirestoreError> for Error {
     fn from(e: FirestoreError) -> Self {
-        Error::Database(e)
+        Self::Database(e)
     }
 }
 
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
-        Error::Json(e)
+        Self::Json(e)
     }
 }
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Error::Parse(e) => write!(f, "Parse error: {}", e),
-            Error::Request(e) => write!(f, "Request error: {}", e),
-            Error::Database(e) => write!(f, "Database error: {}", e),
-            Error::Json(e) => write!(f, "Json error: {}", e),
+            Self::Parse(e) => write!(f, "Parse error: {e}"),
+            Self::Request(e) => write!(f, "Request error: {e}"),
+            Self::Database(e) => write!(f, "Database error: {e}"),
+            Self::Json(e) => write!(f, "Json error: {e}"),
         }
     }
 }

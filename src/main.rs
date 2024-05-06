@@ -8,44 +8,20 @@ mod fetch;
 mod parse;
 mod transpose;
 
-use log;
-
-use std::{
-    env,
-    net::SocketAddr,
-    str::FromStr,
-    sync::{Arc, OnceLock},
-    time::Duration,
-};
+use std::{env, net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
 
 use axum::{
     body::Body,
-    extract::{Request, State, WebSocketUpgrade},
-    http::HeaderValue,
-    middleware,
-    response::{Html, IntoResponse, Response},
+    response::Response,
     routing::{get, on, MethodFilter},
     Extension, Router,
 };
-use futures::stream::{BoxStream, StreamExt as _};
-use juniper::{
-    graphql_object, graphql_subscription, Context, EmptyMutation, EmptySubscription, FieldError,
-    RootNode,
-};
-use juniper_axum::{
-    extract::JuniperRequest,
-    graphiql, graphql, playground,
-    response::JuniperResponse,
-    subscriptions::{self, serve_graphql_transport_ws, serve_graphql_ws},
-    ws,
-};
+use futures::stream::BoxStream;
+use juniper::{graphql_object, EmptyMutation, EmptySubscription, FieldError, RootNode};
+use juniper_axum::{graphiql, graphql, playground, ws};
 use juniper_graphql_ws::ConnectionConfig;
 use parse::Locations;
-use tokio::{
-    net::TcpListener,
-    sync::OnceCell,
-    time::{interval, sleep},
-};
+use tokio::{net::TcpListener, sync::OnceCell, time::sleep};
 use tower_http::compression::CompressionLayer;
 
 use crate::{cache::MultithreadedCache, fetch::make_client};
@@ -73,8 +49,6 @@ impl Query {}
 #[derive(Clone, Copy, Debug)]
 pub struct Subscription;
 
-type NumberStream = BoxStream<'static, Result<i32, FieldError>>;
-
 type Schema = RootNode<'static, Query, EmptyMutation, EmptySubscription>;
 
 #[cfg(all(target_env = "musl", target_pointer_width = "64"))]
@@ -99,7 +73,7 @@ async fn main() {
         .await;
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
-    let addr = SocketAddr::from_str(format!("{}:{}", host, port).as_str()).unwrap();
+    let addr = SocketAddr::from_str(format!("{host}:{port}").as_str()).unwrap();
     let schema = Schema::new(Query, EmptyMutation::new(), EmptySubscription::new());
     let comression_layer: CompressionLayer = CompressionLayer::new()
         .br(true)

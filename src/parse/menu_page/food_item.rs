@@ -6,7 +6,7 @@ use crate::parse::text_from_selection::{get_inner_text, text_from_selection};
 use crate::parse::{remove_excess_whitespace, Error};
 use crate::static_selector;
 use juniper::graphql_object;
-use rusty_money::{iso, Money};
+
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FoodItem<'a> {
@@ -70,7 +70,7 @@ impl From<Vec<Allergens>> for AllergenFlags {
     fn from(allergens: Vec<Allergens>) -> Self {
         allergens
             .into_iter()
-            .fold(AllergenFlags::empty(), |acc, x| acc | x.into())
+            .fold(Self::empty(), |acc, x| acc | x.into())
     }
 }
 
@@ -154,7 +154,7 @@ mod tests {
         let result = juniper::execute(query, None, &rn, &binding, &())
             .await
             .unwrap();
-        println!("{:?}", result);
+        println!("{result:?}");
         // assert!(false); // just to see the output
         // TODO: delete the above line test
     }

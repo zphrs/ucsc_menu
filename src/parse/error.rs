@@ -48,9 +48,9 @@ impl Error {
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::HtmlParse(msg) => write!(f, "HTML Parse Error: {}", msg),
-            Self::TextNodeParse(msg) => write!(f, "Text Node Parse Error: {}", msg),
-            Self::PriceParse(msg) => write!(f, "Price Parse Error: {}", msg),
+            Self::HtmlParse(msg) => write!(f, "HTML Parse Error: {msg}"),
+            Self::TextNodeParse(msg) => write!(f, "Text Node Parse Error: {msg}"),
+            Self::PriceParse(msg) => write!(f, "Price Parse Error: {msg}"),
             Self::Http(msg) => write!(f, "HTTP Request Error: {msg}"),
             Self::Internal(msg) => write!(f, "Internal Error: {msg}"),
         }

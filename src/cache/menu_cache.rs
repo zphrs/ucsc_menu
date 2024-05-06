@@ -1,4 +1,4 @@
-use std::{pin::Pin, sync::OnceLock};
+use std::{sync::OnceLock};
 
 use crate::{
     error::Error,
@@ -6,10 +6,10 @@ use crate::{
     parse::Locations,
     transpose::transposed,
 };
-use chrono::{DateTime, NaiveDate, NaiveDateTime, Offset, TimeDelta, Utc};
-use firestore::{FirestoreDb, FirestoreQueryCollection};
+use chrono::{DateTime, Utc};
+use firestore::{FirestoreDb};
 use futures::{stream::FuturesUnordered, StreamExt};
-use scraper::Html;
+
 
 const CACHES_COLLECTION: &str = "caches";
 
@@ -53,7 +53,7 @@ impl<'a> From<InDbMenuCache> for MenuCache<'a> {
 
 impl<'a> From<MenuCache<'a>> for InDbMenuCache {
     fn from(cache: MenuCache<'a>) -> Self {
-        InDbMenuCache {
+        Self {
             cached_at: cache.cached_at,
             data: serde_json::to_string(&cache.locations).unwrap(),
         }
@@ -165,7 +165,7 @@ impl<'a> MenuCache<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Instant;
+    
 
     use super::*;
 

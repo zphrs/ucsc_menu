@@ -20,7 +20,7 @@ impl<'a> LocationData<'a> {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.menus.iter().all(|x| x.is_none())
+        self.menus.iter().all(std::option::Option::is_none)
     }
 
     pub fn clear(&mut self) {
@@ -38,7 +38,7 @@ impl<'a> LocationData<'a> {
     }
 
     pub fn remove_meals_before(&mut self, date: chrono::NaiveDate) {
-        for meal in self.menus.iter_mut() {
+        for meal in &mut self.menus {
             if let Some(m) = meal {
                 if m.date() < date {
                     *meal = None;

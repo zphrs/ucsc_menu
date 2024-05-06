@@ -1,12 +1,10 @@
-use super::menu_cache::{self, MenuCache};
+use super::menu_cache::{MenuCache};
 use crate::{error::Error, parse::Locations};
 use std::{
-    borrow::BorrowMut,
-    ops::{Deref, DerefMut},
-    sync::Arc,
+    ops::{Deref},
 };
 
-use futures::FutureExt;
+
 use futures_locks::RwLock;
 use juniper::{EmptyMutation, EmptySubscription, RootNode};
 
@@ -51,9 +49,9 @@ impl<'a> MultithreadedCache<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::thread;
+    
 
-    use futures::future::join_all;
+    
 
     use super::*;
 

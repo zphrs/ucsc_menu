@@ -1,12 +1,12 @@
 use chrono::NaiveDate;
-use juniper::marker::IsInputType;
-use juniper::{graphql_interface, graphql_object};
+
+use juniper::{graphql_object};
 
 use super::meal::{Meal, MealType};
 use crate::parse::Error;
 use crate::static_selector;
 
-use regex::Regex;
+
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DailyMenu<'a> {
