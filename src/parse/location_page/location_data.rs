@@ -29,9 +29,7 @@ impl<'a> LocationData<'a> {
 
     #[cfg(test)]
     pub fn menus_mut(&mut self) -> impl Iterator<Item = &mut DailyMenu<'a>> {
-        self.menus
-            .iter_mut()
-            .filter_map(|x| x.as_mut())
+        self.menus.iter_mut().filter_map(|x| x.as_mut())
     }
 
     pub fn menus(&self) -> impl Iterator<Item = &DailyMenu<'a>> {

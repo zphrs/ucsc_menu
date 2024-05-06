@@ -7,7 +7,6 @@ use crate::parse::{remove_excess_whitespace, Error};
 use crate::static_selector;
 use juniper::graphql_object;
 
-
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FoodItem<'a> {
     name: Cow<'a, str>,
