@@ -1,5 +1,5 @@
-#![allow(dead_code)] // TODO: remove this line once done with crate
-#![allow(unused_imports)] // TODO: remove this line once done with crate
+// #![allow(dead_code)] // TODO: remove this line once done with crate
+// #![allow(unused_imports)] // TODO: remove this line once done with crate
 #![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 
 mod cache;
@@ -28,7 +28,6 @@ use axum::{
     Extension, Router,
 };
 use futures::stream::{BoxStream, StreamExt as _};
-use hyper::StatusCode;
 use juniper::{
     graphql_object, graphql_subscription, Context, EmptyMutation, EmptySubscription, FieldError,
     RootNode,

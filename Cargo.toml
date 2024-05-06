@@ -11,17 +11,16 @@ tokio = { version = "1", features = [
     "macros",
     "net",
     "parking_lot",
-    "process",
     "rt",
     "signal",
     "sync",
+    "parking_lot",
 ] }
 reqwest = { version = "0.11.27", default-features = false, features = [
     "rustls-tls",
     "gzip",
 ] }
-juniper = { version = "0.16.1", features = ["schema-language", "chrono"] }
-hyper = { version = "1", features = ["full"] }
+juniper = { version = "0.16.1" }
 scraper = "0.19.0"
 bitflags = "2.5.0"
 rusty-money = { version = "0.4.1", features = ["iso"] }
@@ -39,8 +38,6 @@ juniper_axum = { version = "0.1.0", features = ["subscriptions"] }
 axum = { version = "0.7.5", features = [
     "http1",
     "http2",
-    "json",
-    "ws",
 ], default-features = false }
 axum-server = { version = "0.6.0", features = ["tls-rustls"] }
 tokio-scoped = "0.2.0"
