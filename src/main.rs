@@ -1,6 +1,9 @@
 // #![allow(dead_code)] // TODO: remove this line once done with crate
 // #![allow(unused_imports)] // TODO: remove this line once done with crate
+#![deny(unused_crate_dependencies)]
 #![warn(clippy::all, clippy::pedantic, clippy::nursery)]
+
+use axum_server as _;
 
 mod cache;
 mod error;

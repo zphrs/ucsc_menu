@@ -11,7 +11,7 @@ export default function () {
         }
       }
     }`
-  http.post("http://localhost:3000/graphql", JSON.stringify({ query: q1 }))
+  http.post("https://graphql.ucsc.menu/graphql", JSON.stringify({ query: q1 }))
   // sleep(0.1)
   const q2 = `   
     query Request {
@@ -33,6 +33,5 @@ export default function () {
       }
     }`
   // sleep(1)
-  http.post("http://localhost:3000/graphql", JSON.stringify({ query: q2 }))
-  http.put("http://localhost:3000/request_refresh")
+  http.post("https://graphql.ucsc.menu/graphql", JSON.stringify({ query: q2 }))
 }
