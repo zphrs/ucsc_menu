@@ -11,7 +11,13 @@ mod fetch;
 mod parse;
 mod transpose;
 
-use std::{env, net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
+use std::{
+    env,
+    net::SocketAddr,
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use axum::{
     body::Body,
@@ -63,9 +69,14 @@ async fn refresh<'a>() -> Response {
         .get_or_init(|| async { Multithreaded::new().await.unwrap() })
         .await;
     let _res = cache.refresh().await;
+    let c = cache.get().await;
     Response::builder()
         .status(201)
-        .body(Body::from("OK"))
+        .body(Body::from(format!(
+            "Last refresh: {}\nNext refresh: {}",
+            c.get_time_since_refresh(),
+            c.get_time_until_refresh(),
+        )))
         .unwrap()
 }
 
@@ -83,7 +94,7 @@ async fn main() {
         .deflate(true)
         .gzip(true)
         .zstd(true);
-    pretty_env_logger::init_custom_env("ucsc_menu=info");
+    pretty_env_logger::init();
 
     let app = Router::new()
         .route(
@@ -105,12 +116,19 @@ async fn main() {
     tokio::spawn(async move {
         let client = make_client();
         log::info!("Forcing refresh");
+        let start = Instant::now();
         let _res = client
             .put(format!("http://{addr}/request-refresh"))
             .send()
             .await;
-        log::info!("Forcing refresh done");
-        sleep(Duration::from_secs(15 * 60)).await;
+        log::info!("Forcing refresh done, took {:?}", start.elapsed());
+        sleep(Duration::from_secs(
+            cache::REFRESH_INTERVAL
+                .num_seconds()
+                .try_into()
+                .expect("refresh interval to be positive"),
+        ))
+        .await;
     });
     let listener = TcpListener::bind(addr)
         .await

@@ -7,6 +7,7 @@ use crate::{
 use chrono::{DateTime, Utc};
 use firestore::FirestoreDb;
 use futures::{stream::FuturesUnordered, StreamExt};
+use log::info;
 use tokio::io::AsyncReadExt;
 
 const CACHES_COLLECTION: &str = "caches";
@@ -23,6 +24,8 @@ struct InDbMenuCache {
     data: Vec<u8>,
 }
 
+pub static REFRESH_INTERVAL: chrono::Duration = chrono::Duration::minutes(15);
+
 impl<'a> MenuCache<'a> {
     async fn from_async(cache: InDbMenuCache) -> Self {
         if cache.data.is_empty() {
@@ -31,10 +34,15 @@ impl<'a> MenuCache<'a> {
                 locations: Locations::default(),
             };
         }
-        let mut uncompressed =
+        let mut decompress =
             async_compression::tokio::bufread::GzipDecoder::new(cache.data.as_slice());
+        info!("Size of data compressed: {}", cache.data.len());
         let mut dst = String::with_capacity(cache.data.len() * 8);
-        uncompressed.read_to_string(&mut dst).await;
+        let _len = decompress
+            .read_to_string(&mut dst)
+            .await
+            .expect("should succeed");
+        info!("Size of data uncompressed: {}", dst.len());
         let locations: Locations =
             serde_json::from_str(&dst).expect("Data parse should always be valid");
         MenuCache {
@@ -59,12 +67,20 @@ impl<'a> MenuCache<'a> {
     }
 
     pub async fn maybe_refresh(&mut self) -> Result<bool, Error> {
-        if Utc::now().signed_duration_since(self.cached_at) > chrono::Duration::minutes(15) {
+        if self.get_time_since_refresh() > chrono::Duration::minutes(15) {
             self.refresh().await?;
             Ok(true)
         } else {
             Ok(false)
         }
+    }
+
+    pub fn get_time_since_refresh(&self) -> chrono::Duration {
+        Utc::now().signed_duration_since(self.cached_at)
+    }
+
+    pub fn get_time_until_refresh(&self) -> chrono::Duration {
+        REFRESH_INTERVAL - self.get_time_since_refresh()
     }
 
     async fn fetch_from_db() -> Result<Self, crate::error::Error> {
@@ -158,6 +174,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_open() {
+        pretty_env_logger::init();
         let _mc = MenuCache::open().await.unwrap();
     }
 
