@@ -1,0 +1,88 @@
+schema {
+  query: Query
+}
+
+enum Allergens {
+  EGG
+  FISH
+  GLUTEN_FRIENDLY
+  MILK
+  PEANUT
+  SOY
+  TREE_NUT
+  ALCOHOL
+  VEGAN
+  VEGETARIAN
+  PORK
+  BEEF
+  HALAL
+  SHELLFISH
+  SESAME
+}
+
+enum Type {
+  BREAKFAST
+  LUNCH
+  DINNER
+  LATE_NIGHT
+  MENU
+  UNKNOWN
+  ALL_DAY
+  BANANA_JOES
+}
+
+input DateRange {
+  start: Date
+  end: Date
+}
+
+"""
+  Date in the proleptic Gregorian calendar (without time zone).
+
+  Represents a description of the date (as used for birthdays, for example).
+  It cannot represent an instant on the time-line.
+
+  [`Date` scalar][1] compliant.
+
+  See also [`chrono::NaiveDate`][2] for details.
+
+  [1]: https://graphql-scalars.dev/docs/scalars/date
+  [2]: https://docs.rs/chrono/latest/chrono/naive/struct.NaiveDate.html
+"""
+scalar Date
+
+type DailyMenu {
+  date: Date!
+  meals(mealType: Type): [Meal!]!
+}
+
+type FoodItem {
+  allergens: [Allergens!]!
+  name: String!
+  price: String
+}
+
+type Location {
+  id: String!
+  name: String!
+  menus(dateRange: DateRange): [DailyMenu!]!
+}
+
+type Locations {
+  locations(ids: [String!]): [Location!]!
+}
+
+type Meal {
+  mealType: Type!
+  sections: [Section!]!
+}
+
+type Query {
+  "Adds two `a` and `b` numbers."
+  query: Locations!
+}
+
+type Section {
+  name: String!
+  foodItems(containsAllAllergens: [Allergens!], excludesAllAllergens: [Allergens!], containsAnyAllergens: [Allergens!], nameContains: String): [FoodItem!]!
+}

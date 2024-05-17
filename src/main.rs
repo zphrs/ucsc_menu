@@ -80,6 +80,7 @@ async fn refresh<'a>() -> Response {
         .unwrap()
 }
 
+#[cfg(not(feature = "dump-schema"))]
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     CACHE
@@ -137,4 +138,11 @@ async fn main() {
     axum::serve(listener, app)
         .await
         .unwrap_or_else(|e| panic!("failed to run `axum::serve`: {e}"));
+}
+
+#[cfg(feature = "dump-schema")]
+fn main() {
+    let schema = Schema::new(Query, EmptyMutation::new(), EmptySubscription::new());
+    std::fs::write("ucsc_menu.graphql", schema.as_sdl().as_bytes())
+        .expect("error writing schema to file");
 }
