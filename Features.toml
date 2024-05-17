@@ -1,0 +1,8 @@
+axum = ["http1", "http2"]
+axum-server = [
+    "tls-rustls",
+    "rustls",
+    "arc-swap",
+    "tokio-rustls",
+    "rustls-pemfile",
+]

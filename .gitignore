@@ -1,2 +1,5 @@
 /target
 /webui/dist
+/.vscode
+install
+secrets

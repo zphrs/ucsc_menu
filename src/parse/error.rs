@@ -4,47 +4,55 @@ use rusty_money::MoneyError;
 
 #[derive(Debug)]
 pub enum Error {
-    HTMLParseError(String),
-    TextNodeParseError(String),
-    PriceParseError(String),
-    HTTPError(String),
+    HtmlParse(String),
+    TextNodeParse(String),
+    PriceParse(String),
+    Http(String),
+    Internal(String),
 }
 
 impl From<MoneyError> for Error {
     fn from(e: MoneyError) -> Self {
-        Self::PriceParseError(e.to_string())
+        Self::PriceParse(e.to_string())
     }
 }
 
 impl From<reqwest::Error> for Error {
     fn from(e: reqwest::Error) -> Self {
-        Self::HTTPError(e.to_string())
+        Self::Http(e.to_string())
     }
 }
 
 impl Error {
     pub fn html_parse_error(msg: &str) -> Self {
-        Self::HTMLParseError(msg.to_string())
+        Self::HtmlParse(msg.to_string())
     }
     pub fn text_node_parse_error(msg: &str) -> Self {
-        Self::TextNodeParseError(msg.to_string())
+        Self::TextNodeParse(msg.to_string())
     }
     pub fn price_parse_error(msg: &str) -> Self {
-        Self::PriceParseError(msg.to_string())
+        Self::PriceParse(msg.to_string())
     }
 
     pub fn http_error(msg: &str) -> Self {
-        Self::HTTPError(msg.to_string())
+        Self::Http(msg.to_string())
+    }
+}
+
+impl Error {
+    pub fn internal_error(msg: &str) -> Self {
+        Self::Internal(msg.to_string())
     }
 }
 
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::HTMLParseError(msg) => write!(f, "HTML Parse Error: {}", msg),
-            Self::TextNodeParseError(msg) => write!(f, "Text Node Parse Error: {}", msg),
-            Self::PriceParseError(msg) => write!(f, "Price Parse Error: {}", msg),
-            Self::HTTPError(msg) => write!(f, "HTTP Request Error: {msg}"),
+            Self::HtmlParse(msg) => write!(f, "HTML Parse Error: {msg}"),
+            Self::TextNodeParse(msg) => write!(f, "Text Node Parse Error: {msg}"),
+            Self::PriceParse(msg) => write!(f, "Price Parse Error: {msg}"),
+            Self::Http(msg) => write!(f, "HTTP Request Error: {msg}"),
+            Self::Internal(msg) => write!(f, "Internal Error: {msg}"),
         }
     }
 }
