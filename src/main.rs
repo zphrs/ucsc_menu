@@ -21,19 +21,20 @@ use std::{
 
 use axum::{
     body::Body,
+    http::Method,
     response::Response,
     routing::{get, on, MethodFilter},
     Extension, Router,
 };
 
+use crate::{cache::Multithreaded, fetch::make_client};
 use juniper::{graphql_object, EmptyMutation, EmptySubscription, RootNode};
 use juniper_axum::{graphiql, graphql, playground, ws};
 use juniper_graphql_ws::ConnectionConfig;
 use parse::Locations;
 use tokio::{net::TcpListener, sync::OnceCell, time::sleep};
-use tower_http::compression::CompressionLayer;
-
-use crate::{cache::Multithreaded, fetch::make_client};
+use tower_http::cors::CorsLayer;
+use tower_http::{compression::CompressionLayer, cors::Any};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Query;
@@ -94,6 +95,9 @@ async fn main() {
         .deflate(true)
         .gzip(true)
         .zstd(true);
+    let cors_layer = CorsLayer::new()
+        .allow_methods([Method::GET, Method::POST]) // intentionally excludes request-refresh/PUT
+        .allow_origin(Any);
     pretty_env_logger::init();
 
     let app = Router::new()
@@ -111,6 +115,7 @@ async fn main() {
         .route("/request-refresh", on(MethodFilter::PUT, refresh))
         .route("/graphiql", get(graphiql("/graphql", "/subscriptions")))
         .route("/playground", get(playground("/graphql", "/subscriptions")))
+        .layer(cors_layer)
         .layer(Extension(Arc::new(schema)))
         .layer(comression_layer);
     tokio::spawn(async move {
