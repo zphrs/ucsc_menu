@@ -9,17 +9,14 @@ use firestore::FirestoreDb;
 use futures::{stream::FuturesUnordered, StreamExt};
 use log::info;
 use tokio::io::AsyncReadExt;
-
 const CACHES_COLLECTION: &str = "caches";
-
 #[derive(Debug)]
 pub struct MenuCache<'a> {
     cached_at: DateTime<Utc>,
     locations: Locations<'a>,
 }
-
 #[derive(serde::Serialize, serde::Deserialize, Default)]
-struct InDbMenuCache {
+struct GCloudMenuCache {
     cached_at: DateTime<Utc>,
     data: Vec<u8>,
 }
@@ -27,7 +24,7 @@ struct InDbMenuCache {
 pub static REFRESH_INTERVAL: chrono::Duration = chrono::Duration::minutes(15);
 
 impl<'a> MenuCache<'a> {
-    async fn from_async(cache: InDbMenuCache) -> Self {
+    async fn from_async(cache: GCloudMenuCache) -> Self {
         if cache.data.is_empty() {
             return MenuCache {
                 cached_at: cache.cached_at,
@@ -85,7 +82,7 @@ impl<'a> MenuCache<'a> {
 
     async fn fetch_from_db() -> Result<Self, crate::error::Error> {
         let db = FirestoreDb::new("ucsc-menu").await?;
-        let cache: InDbMenuCache = db
+        let cache: GCloudMenuCache = db
             .fluent()
             .select()
             .by_id_in(CACHES_COLLECTION)
@@ -96,7 +93,7 @@ impl<'a> MenuCache<'a> {
         Ok(MenuCache::from_async(cache).await)
     }
 
-    async fn to_db_representation(&self) -> InDbMenuCache {
+    async fn to_db_representation(&self) -> GCloudMenuCache {
         let json = serde_json::to_string(self.locations()).unwrap();
         let mut compressed = Vec::with_capacity(json.len() / 4);
         let mut compress =
@@ -105,14 +102,14 @@ impl<'a> MenuCache<'a> {
             .read_buf(&mut compressed)
             .await
             .expect("This should succeed");
-        InDbMenuCache {
+        GCloudMenuCache {
             cached_at: self.cached_at,
             data: compressed,
         }
     }
 
     async fn save_to_db(&self) -> Result<(), firestore::errors::FirestoreError> {
-        let cache: InDbMenuCache = self.to_db_representation().await;
+        let cache: GCloudMenuCache = self.to_db_representation().await;
         let db = FirestoreDb::new("ucsc-menu").await?;
         db.fluent()
             .update()

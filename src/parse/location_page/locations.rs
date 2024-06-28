@@ -180,7 +180,7 @@ mod tests {
             .parse()
             .expect("url should be valid");
         let mut location = Location::new(LocationMeta::from_url(url).unwrap());
-        let v = vec![html];
+        let v = [html];
         location.add_meals(v.iter()).unwrap();
         assert!(location.hydrated());
         let root = RootNode::new(
