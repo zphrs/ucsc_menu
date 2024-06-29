@@ -1,10 +1,14 @@
 use std::slice::{Iter, IterMut};
 
 use chrono::NaiveDate;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt as _;
 use juniper::{graphql_object, GraphQLInputObject};
 use scraper::Html;
 
+use crate::fetch;
 use crate::parse::menu_page::DailyMenu;
+use crate::transpose::transposed;
 use crate::{parse::Error, static_selector};
 
 use super::location_meta::LocationMeta;
@@ -12,7 +16,7 @@ use super::location_meta::LocationMeta;
 use super::location_data::LocationData;
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq, Clone)]
-pub struct Location<'a>(LocationData<'a>, LocationMeta);
+pub struct Location(LocationData, LocationMeta);
 
 #[derive(GraphQLInputObject, Debug)]
 pub struct DateRange {
@@ -21,7 +25,7 @@ pub struct DateRange {
 }
 
 #[graphql_object]
-impl<'a> Location<'a> {
+impl Location {
     pub fn id(&self) -> &str {
         self.1.id()
     }
@@ -29,7 +33,7 @@ impl<'a> Location<'a> {
         self.1.name()
     }
     #[allow(clippy::needless_pass_by_value)] // ignored because graphql doesn't support pass by reference
-    pub fn menus(&self, date_range: Option<DateRange>) -> Vec<&DailyMenu<'a>> {
+    pub fn menus(&self, date_range: Option<DateRange>) -> Vec<&DailyMenu> {
         if let Some(DateRange { start, end }) = date_range {
             self.0
                 .menus()
@@ -46,15 +50,12 @@ impl<'a> Location<'a> {
     }
 }
 
-impl<'a> Location<'a> {
+impl Location {
     pub fn new(location_meta: LocationMeta) -> Self {
         Self(LocationData::new(), location_meta)
     }
 
-    pub fn add_meals<'b: 'a>(
-        &mut self,
-        htmls: impl Iterator<Item = &'b Html>,
-    ) -> Result<(), Error> {
+    pub fn add_meals<'a>(&mut self, htmls: impl Iterator<Item = &'a Html>) -> Result<(), Error> {
         // TODO: instead of immediately clearing, diff the similar meals first
         self.clear();
         for html in htmls {
@@ -76,14 +77,14 @@ impl<'a> Location<'a> {
     }
 }
 #[derive(Debug, serde::Serialize, serde::Deserialize, Default, PartialEq, Eq, Clone)]
-pub struct Locations<'a> {
-    locations: Vec<Location<'a>>,
+pub struct Locations {
+    locations: Vec<Location>,
 }
 
 #[graphql_object]
-impl<'a> Locations<'a> {
+impl Locations {
     #[allow(clippy::needless_pass_by_value)] // ignored because graphql doesn't support pass by reference
-    pub fn locations(&self, ids: Option<Vec<String>>) -> Vec<&Location<'a>> {
+    pub fn locations(&self, ids: Option<Vec<String>>) -> Vec<&Location> {
         ids.map_or_else(
             || self.locations.iter().collect(),
             |ids| {
@@ -97,7 +98,7 @@ impl<'a> Locations<'a> {
     }
 }
 
-impl<'a> Locations<'a> {
+impl Locations {
     pub fn from_html_element(element: scraper::ElementRef) -> Result<Self, Error> {
         static_selector!(LOCATION_CHOICES_SELECTOR <- "div#locationchoices");
         static_selector!(LOCATION_SELECTOR <- "li.locations");
@@ -118,11 +119,11 @@ impl<'a> Locations<'a> {
         Ok(Self { locations })
     }
 
-    pub fn iter_mut(&mut self) -> IterMut<Location<'a>> {
+    pub fn iter_mut(&mut self) -> IterMut<Location> {
         self.locations.iter_mut()
     }
 
-    pub fn iter(&self) -> Iter<Location<'a>> {
+    pub fn iter(&self) -> Iter<Location> {
         self.locations.iter()
     }
     // might eventually be used for diffing
@@ -146,6 +147,38 @@ impl<'a> Locations<'a> {
         location.add_meals(htmls)?;
 
         Ok(())
+    }
+
+    pub async fn load(client: &reqwest::Client) -> crate::Result<Self> {
+        let locations_page = fetch::locations_page(&client).await?;
+        let mut locations = {
+            let parsed = scraper::Html::parse_document(&locations_page);
+            let locations: Locations = Locations::from_html_element(parsed.root_element())?;
+            locations
+        };
+        let start_date = chrono::Utc::now().date_naive() - chrono::Duration::days(1); // subtract one day to make sure we try to get today's menu due to timezones
+        let week_menus: FuturesUnordered<_> = fetch::date_iter(start_date, 10)
+            .map(|x| fetch::menus_on_date(&client, &locations, Some(x)))
+            .collect();
+        let week_menus: Vec<_> = week_menus.collect().await;
+        let valid_week_menus = week_menus.into_iter().filter_map(Result::ok).collect();
+
+        let valid_week_menus: Vec<_> = transposed(valid_week_menus)
+            .into_iter()
+            .map(|v| -> Vec<_> {
+                v.into_iter()
+                    .map(|s| scraper::Html::parse_document(&s))
+                    .collect()
+            })
+            .collect();
+        let parsed_week_menus_iter = valid_week_menus.iter();
+        for (location, htmls) in locations.iter_mut().zip(parsed_week_menus_iter) {
+            location.add_meals(htmls.iter())?;
+        }
+
+        Ok(serde_json::from_str(
+            &serde_json::to_string(&locations).unwrap(),
+        )?)
     }
 }
 
@@ -194,7 +227,7 @@ mod tests {
                 name
                 # If you change the start or end date then the query will return an empty array
                 # you can also set either start or end to null or simply omit them to not filter by that constraint
-                menus(dateRange: {start: "2024-04-05", end: "2024-04-05"}) { 
+                menus(dateRange: {start: "2024-04-05", end: "2024-04-05"}) {
                     date
                     meals {
                         mealType

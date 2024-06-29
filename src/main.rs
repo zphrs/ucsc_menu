@@ -6,6 +6,7 @@
 use axum_server as _; // to use rustls over openssl bc alpine linux
 
 mod cache;
+mod config;
 mod error;
 mod fetch;
 mod parse;
@@ -21,36 +22,41 @@ use std::{
 
 use axum::{
     body::Body,
+    extract::State,
     http::Method,
     response::Response,
     routing::{get, on, MethodFilter},
     Extension, Router,
 };
 
-use crate::{cache::Multithreaded, fetch::make_client};
+use crate::{
+    cache::{Multithreaded, Store},
+    fetch::make_client,
+};
 use juniper::{graphql_object, EmptyMutation, EmptySubscription, RootNode};
 use juniper_axum::{graphiql, graphql, playground, ws};
 use juniper_graphql_ws::ConnectionConfig;
 use parse::Locations;
-use tokio::{net::TcpListener, sync::OnceCell, time::sleep};
+use tokio::{net::TcpListener, time::sleep};
 use tower_http::cors::CorsLayer;
 use tower_http::{compression::CompressionLayer, cors::Any};
 
-#[derive(Clone, Copy, Debug)]
-pub struct Query;
+pub use error::Result;
 
-static CACHE: OnceCell<Multithreaded<'static>> = OnceCell::const_new();
+#[derive(Clone, Debug)]
+pub struct Query(Arc<Multithreaded>);
+
 #[graphql_object]
 impl Query {
     /// Adds two `a` and `b` numbers.
-    async fn query(&self) -> Locations<'static> {
-        let c = CACHE.get_or_init(|| async { Multithreaded::new().await.unwrap() });
-        c.await.get().await.locations().to_owned()
+    async fn query(&self) -> Locations {
+        self.0.get().await.locations().to_owned()
     }
     #[graphql(ignore)]
     pub async fn refresh(self) {
-        let c = CACHE.get_or_init(|| async { Multithreaded::new().await.unwrap() });
-        let _ = c.await.refresh().await;
+        if let Err(e) = self.0.refresh().await {
+            tracing::warn!("Error while refreshing cache: {e:?}");
+        }
     }
 }
 
@@ -65,31 +71,43 @@ type Schema = RootNode<'static, Query, EmptyMutation, EmptySubscription>;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-async fn refresh<'a>() -> Response {
-    let cache = CACHE
-        .get_or_init(|| async { Multithreaded::new().await.unwrap() })
-        .await;
+async fn refresh(State(cache): State<Arc<Multithreaded>>) -> Response {
     let _res = cache.refresh().await;
     let c = cache.get().await;
     Response::builder()
         .status(201)
         .body(Body::from(format!(
             "Last refresh: {}\nNext refresh: {}",
-            c.get_time_since_refresh(),
-            c.get_time_until_refresh(),
+            c.time_since_refresh(),
+            c.time_until_refresh(),
         )))
         .unwrap()
 }
 
+#[cfg(not(feature = "dump-schema"))]
 #[tokio::main(flavor = "current_thread")]
-async fn main() {
-    CACHE
-        .get_or_init(|| async { Multithreaded::new().await.unwrap() })
-        .await;
+async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
+    pretty_env_logger::init();
+    let store = match env::var("CACHE").as_deref() {
+        Ok(":firestore:") => Store::cloud().await?,
+        Ok(":memory:") => Store::AdHoc,
+        Ok(p) => Store::local(p).await?,
+        Err(_) => {
+            log::warn!("env var CACHE not set, using ad-hoc memory cache.");
+            Store::AdHoc
+        }
+    };
+    println!("{store:?}");
+    let cache = Arc::new(Multithreaded::new(store).await?);
+    println!("{cache:?}");
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
     let addr = SocketAddr::from_str(format!("{host}:{port}").as_str()).unwrap();
-    let schema = Schema::new(Query, EmptyMutation::new(), EmptySubscription::new());
+    let schema = Schema::new(
+        Query(Arc::clone(&cache)),
+        EmptyMutation::new(),
+        EmptySubscription::new(),
+    );
     let comression_layer: CompressionLayer = CompressionLayer::new()
         .br(true)
         .deflate(true)
@@ -98,7 +116,6 @@ async fn main() {
     let cors_layer = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST]) // intentionally excludes request-refresh/PUT
         .allow_origin(Any);
-    pretty_env_logger::init();
 
     let app = Router::new()
         .route(
@@ -112,9 +129,10 @@ async fn main() {
             "/subscriptions",
             get(ws::<Arc<Schema>>(ConnectionConfig::new(()))),
         )
-        .route("/request-refresh", on(MethodFilter::PUT, refresh))
         .route("/graphiql", get(graphiql("/graphql", "/subscriptions")))
         .route("/playground", get(playground("/graphql", "/subscriptions")))
+        .route("/request-refresh", on(MethodFilter::PUT, refresh))
+        .with_state(Arc::clone(&cache))
         .layer(cors_layer)
         .layer(Extension(Arc::new(schema)))
         .layer(comression_layer);
@@ -139,7 +157,13 @@ async fn main() {
         .await
         .unwrap_or_else(|e| panic!("failed to listen on {addr}: {e}"));
     log::info!("listening on http://{addr}");
-    axum::serve(listener, app)
-        .await
-        .unwrap_or_else(|e| panic!("failed to run `axum::serve`: {e}"));
+    axum::serve(listener, app).await?;
+    Ok(())
+}
+
+#[cfg(feature = "dump-schema")]
+fn main() {
+    let schema = Schema::new(Query, EmptyMutation::new(), EmptySubscription::new());
+    std::fs::write("ucsc_menu.graphql", schema.as_sdl().as_bytes())
+        .expect("error writing schema to file");
 }

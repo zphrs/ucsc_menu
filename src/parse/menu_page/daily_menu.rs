@@ -7,19 +7,19 @@ use crate::parse::Error;
 use crate::static_selector;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct DailyMenu<'a> {
+pub struct DailyMenu {
     // graphql representation: yyyy-MM-dd
     date: NaiveDate,
-    meals: Vec<Meal<'a>>,
+    meals: Vec<Meal>,
 }
 
 #[graphql_object]
-impl<'a> DailyMenu<'a> {
+impl DailyMenu {
     pub const fn date(&self) -> NaiveDate {
         self.date
     }
 
-    pub fn meals(&self, meal_type: Option<Type>) -> Vec<Meal<'a>> {
+    pub fn meals(&self, meal_type: Option<Type>) -> Vec<Meal> {
         meal_type.map_or_else(
             || self.meals.clone(),
             |meal_type| {
@@ -33,28 +33,28 @@ impl<'a> DailyMenu<'a> {
     }
 }
 
-impl PartialEq for DailyMenu<'_> {
+impl PartialEq for DailyMenu {
     fn eq(&self, other: &Self) -> bool {
         self.date == other.date
     }
 }
 
-impl PartialOrd for DailyMenu<'_> {
+impl PartialOrd for DailyMenu {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Eq for DailyMenu<'_> {}
+impl Eq for DailyMenu {}
 
-impl Ord for DailyMenu<'_> {
+impl Ord for DailyMenu {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.date.cmp(&other.date)
     }
 }
 
-impl<'a> DailyMenu<'a> {
-    pub fn from_html_element(element: scraper::ElementRef<'a>) -> Result<Self, Error> {
+impl DailyMenu {
+    pub fn from_html_element(element: scraper::ElementRef<'_>) -> Result<Self, Error> {
         static_selector!(DATE_SELECTOR <- "input[name=strCurSearchDays]");
         static_selector!(MEAL_SELECTOR <- r##"table[bordercolor="#CCC"] table[bordercolor="#FFFF00"]"##);
         let date_str = element

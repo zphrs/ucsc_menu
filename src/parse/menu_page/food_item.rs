@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use super::allergens::{AllergenFlags, AllergenInfo, Allergens};
 use super::money::Usd;
 use crate::parse::text_from_selection::{get_inner_text, text_from_selection};
@@ -8,30 +6,30 @@ use crate::static_selector;
 use juniper::graphql_object;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct FoodItem<'a> {
-    name: Cow<'a, str>,
+pub struct FoodItem {
+    name: String,
     allergen_info: AllergenInfo,
     #[serde(skip_serializing, skip_deserializing)]
-    price: Option<Usd<'a>>, // in cents
+    price: Option<Usd>, // in cents
 }
 
-impl PartialEq for FoodItem<'_> {
+impl PartialEq for FoodItem {
     fn eq(&self, other: &Self) -> bool {
         // we ignore meal_type, category and price intentionally in checking equality
         self.name == other.name && self.allergen_info == other.allergen_info
     }
 }
 
-impl Eq for FoodItem<'_> {}
+impl Eq for FoodItem {}
 
-impl<'a> FoodItem<'a> {
-    pub fn from_html_element(element: scraper::ElementRef<'a>) -> Result<Self, Error> {
+impl FoodItem {
+    pub fn from_html_element(element: scraper::ElementRef<'_>) -> Result<Self, Error> {
         // example html tr element at ./html_examples/food_item.html
 
         // get name with css selector .shortmenurecipes > span
         static_selector!(NAME_SELECTOR <- ".shortmenurecipes > span");
         let name = text_from_selection(&NAME_SELECTOR, element, "foodItem", "name")?.trim_end();
-        let name = remove_excess_whitespace(name);
+        let name = remove_excess_whitespace(name).into_owned();
         // get allergen info with css selector td > img
         static_selector!(ALLERGEN_INFO_SELECTOR <- "td > img");
         let allergen_info =
@@ -74,7 +72,7 @@ impl From<Vec<Allergens>> for AllergenFlags {
 }
 
 #[graphql_object]
-impl<'a> FoodItem<'a> {
+impl FoodItem {
     pub fn allergens(&self) -> Vec<Allergens> {
         self.allergen_info.into()
     }
