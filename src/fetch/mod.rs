@@ -70,7 +70,7 @@ pub async fn fetch_location_page(
 
 pub async fn menus_on_date(
     client: &reqwest::Client,
-    locations: &Locations<'_>,
+    locations: &Locations,
     date: Option<chrono::NaiveDate>,
 ) -> Result<Vec<String>, RequestError> {
     futures::future::try_join_all(

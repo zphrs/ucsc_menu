@@ -7,12 +7,12 @@ use crate::parse::Error;
 pub const NUM_MEALS: usize = 10;
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq, Clone)]
-pub struct LocationData<'a> {
-    menus: [Option<DailyMenu<'a>>; NUM_MEALS], // keep track of up to 10 days of meals
+pub struct LocationData {
+    menus: [Option<DailyMenu>; NUM_MEALS], // keep track of up to 10 days of meals
 }
 
-const ARRAY_REPEAT_VALUE: std::option::Option<DailyMenu<'static>> = None;
-impl<'a> LocationData<'a> {
+const ARRAY_REPEAT_VALUE: std::option::Option<DailyMenu> = None;
+impl LocationData {
     pub const fn new() -> Self {
         Self {
             menus: [ARRAY_REPEAT_VALUE; NUM_MEALS],
@@ -28,11 +28,11 @@ impl<'a> LocationData<'a> {
     }
 
     #[cfg(test)]
-    pub fn menus_mut(&mut self) -> impl Iterator<Item = &mut DailyMenu<'a>> {
+    pub fn menus_mut(&mut self) -> impl Iterator<Item = &mut DailyMenu> {
         self.menus.iter_mut().filter_map(|x| x.as_mut())
     }
 
-    pub fn menus(&self) -> impl Iterator<Item = &DailyMenu<'a>> {
+    pub fn menus(&self) -> impl Iterator<Item = &DailyMenu> {
         self.menus.iter().filter_map(|x| x.as_ref())
     }
 
@@ -47,7 +47,7 @@ impl<'a> LocationData<'a> {
         }
     }
 
-    pub fn add_meal(&mut self, html: &'a Html) -> Result<()> {
+    pub fn add_meal(&mut self, html: &Html) -> Result<()> {
         let menu = DailyMenu::from_html_element(html.root_element())?;
 
         self.menus

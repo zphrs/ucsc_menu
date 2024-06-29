@@ -1,4 +1,4 @@
-use std::{borrow::Cow, iter::Peekable, vec};
+use std::{iter::Peekable, vec};
 
 use juniper::{graphql_object, GraphQLEnum, GraphQLObject};
 use regex::RegexBuilder;
@@ -27,13 +27,13 @@ pub enum Type {
     BananaJoes, // Late Night @ Banana Joes - only for crown
 }
 #[derive(Debug, GraphQLObject, Clone, serde::Serialize, serde::Deserialize)]
-pub struct Meal<'a> {
+pub struct Meal {
     pub meal_type: Type,
-    pub sections: Vec<Section<'a>>,
+    pub sections: Vec<Section>,
 }
 
-impl<'a> Meal<'a> {
-    pub fn from_html_element(element: scraper::ElementRef<'a>) -> Result<Self, Error> {
+impl Meal {
+    pub fn from_html_element(element: scraper::ElementRef<'_>) -> Result<Self, Error> {
         // example html div element at ./html_examples/meal.html
         static_selector!(ROW_SELECTOR <- r##"table[bordercolor="#FFFF00"] > tbody > tr"##);
         let mut top_level_row_iter = element.select(&ROW_SELECTOR);
@@ -92,7 +92,7 @@ impl<'a> SectionIterator<'a> {
 }
 
 impl<'a> Iterator for SectionIterator<'a> {
-    type Item = Result<Section<'a>, Error>;
+    type Item = Result<Section, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let elements = &mut self.elements;
@@ -104,13 +104,13 @@ impl<'a> Iterator for SectionIterator<'a> {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct Section<'a> {
-    pub name: Cow<'a, str>,
-    pub food_items: Vec<FoodItem<'a>>,
+pub struct Section {
+    pub name: String,
+    pub food_items: Vec<FoodItem>,
 }
 
 #[graphql_object]
-impl<'a> Section<'a> {
+impl Section {
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -121,14 +121,14 @@ impl<'a> Section<'a> {
         excludes_all_allergens: Option<Vec<Allergens>>,
         contains_any_allergens: Option<Vec<Allergens>>,
         name_contains: Option<String>,
-    ) -> Vec<FoodItem<'a>> {
+    ) -> Vec<FoodItem> {
         let contains_all_mask: Option<AllergenFlags> =
             contains_all_allergens.map(std::convert::Into::into);
         let excludes_all_mask: Option<AllergenFlags> =
             excludes_all_allergens.map(std::convert::Into::into);
         let contains_any_mask: Option<AllergenFlags> =
             contains_any_allergens.map(std::convert::Into::into);
-        let allergen_filter = |food_item: &&FoodItem<'a>| {
+        let allergen_filter = |food_item: &&FoodItem| {
             let mask = food_item.get_allergen_mask();
             let mut out = true;
             out &= contains_all_mask.map_or(true, |contains_all| mask.contains(contains_all));
@@ -157,9 +157,9 @@ impl<'a> Section<'a> {
     }
 }
 
-impl<'a> Section<'a> {
+impl Section {
     // takes in an iterator of tr elements of a specific meal and consumes the elements to create a MealSection
-    pub fn from_html_elements(elements: &mut Peekable<Select<'a, 'a>>) -> Result<Self, Error> {
+    pub fn from_html_elements(elements: &mut Peekable<Select<'_, '_>>) -> Result<Self, Error> {
         static_selector!(SECTION_NAME_SELECTOR <- ".shortmenucats > span");
 
         // if the first element does not match the section name selector, then return an error
@@ -171,7 +171,7 @@ impl<'a> Section<'a> {
         // trim off first and last three characters since the name looks like -- name --
         let name = &name[3..name.len() - 3];
 
-        let name = remove_excess_whitespace(name);
+        let name = remove_excess_whitespace(name).into_owned();
 
         // iterate through by peeking and calling handle_element
         let mut food_items = vec![];
@@ -188,7 +188,7 @@ impl<'a> Section<'a> {
         Ok(Section { name, food_items })
     }
 
-    fn handle_element(element: scraper::ElementRef<'a>) -> Result<Option<FoodItem<'a>>, Error> {
+    fn handle_element(element: scraper::ElementRef<'_>) -> Result<Option<FoodItem>, Error> {
         static_selector!(SECTION_NAME_SELECTOR <- ".shortmenucats > span");
         if element.select(&SECTION_NAME_SELECTOR).next().is_some() {
             Ok(None)

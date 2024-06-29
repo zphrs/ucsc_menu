@@ -1,9 +1,9 @@
 use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Usd<'a>(rusty_money::Money<'a, rusty_money::iso::Currency>);
+pub struct Usd(rusty_money::Money<'static, rusty_money::iso::Currency>);
 
-impl Usd<'_> {
+impl Usd {
     pub fn from_str(s: &str) -> Result<Self, rusty_money::MoneyError> {
         Ok(Self(rusty_money::Money::from_str(
             s,
@@ -12,19 +12,19 @@ impl Usd<'_> {
     }
 }
 
-impl Display for Usd<'_> {
+impl Display for Usd {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-impl serde::Serialize for Usd<'_> {
+impl serde::Serialize for Usd {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         self.to_string().serialize(serializer)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for Usd<'_> {
+impl<'de> serde::Deserialize<'de> for Usd {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
         // remove quotes

@@ -3,12 +3,15 @@ use firestore::errors::FirestoreError;
 use crate::parse;
 use std::fmt::{self, Display, Formatter};
 
+pub type Result<T> = core::result::Result<T, Error>;
+
 #[derive(Debug)]
 pub enum Error {
     Parse(parse::Error),
     Request(reqwest::Error),
     Database(FirestoreError),
     Json(serde_json::Error),
+    Io(std::io::Error),
 }
 
 impl From<parse::Error> for Error {
@@ -35,6 +38,12 @@ impl From<serde_json::Error> for Error {
     }
 }
 
+impl From<std::io::Error> for Error {
+    fn from(value: std::io::Error) -> Self {
+        Self::Io(value)
+    }
+}
+
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -42,6 +51,9 @@ impl Display for Error {
             Self::Request(e) => write!(f, "Request error: {e}"),
             Self::Database(e) => write!(f, "Database error: {e}"),
             Self::Json(e) => write!(f, "Json error: {e}"),
+            Self::Io(e) => write!(f, "IO error: {e}"),
         }
     }
 }
+
+impl std::error::Error for Error {}
