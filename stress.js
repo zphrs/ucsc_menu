@@ -1,6 +1,9 @@
 import http from "k6/http"
 import { sleep } from "k6"
 
+// const BASE = "http://localhost:3000"
+const BASE = "https://graphql.ucsc.menu"
+
 export default function () {
   const q1 = `   
     query Request {
@@ -11,7 +14,7 @@ export default function () {
         }
       }
     }`
-  http.post("https://graphql.ucsc.menu/graphql", JSON.stringify({ query: q1 }))
+  http.post(`${BASE}/graphql`, JSON.stringify({ query: q1 }))
   // sleep(0.1)
   const q2 = `   
     query Request {
@@ -33,5 +36,5 @@ export default function () {
       }
     }`
   // sleep(1)
-  http.post("https://graphql.ucsc.menu/graphql", JSON.stringify({ query: q2 }))
+  http.post(`${BASE}/graphql`, JSON.stringify({ query: q2 }))
 }
