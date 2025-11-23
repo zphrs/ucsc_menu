@@ -96,7 +96,7 @@ async fn main() {
         .gzip(true)
         .zstd(true);
     let cors_layer = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST]) // intentionally excludes request-refresh/PUT
+        .allow_methods([Method::GET, Method::POST]) // intentionally excludes PUT /request-refresh
         .allow_origin(Any);
     pretty_env_logger::init();
 

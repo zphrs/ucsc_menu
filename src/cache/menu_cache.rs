@@ -82,6 +82,7 @@ impl<'a> MenuCache<'a> {
 
     async fn fetch_from_db() -> Result<Self, crate::error::Error> {
         let db = FirestoreDb::new("ucsc-menu").await?;
+        // let db = FirestoreDb::w
         let cache: GCloudMenuCache = db
             .fluent()
             .select()
@@ -111,13 +112,15 @@ impl<'a> MenuCache<'a> {
     async fn save_to_db(&self) -> Result<(), firestore::errors::FirestoreError> {
         let cache: GCloudMenuCache = self.to_db_representation().await;
         let db = FirestoreDb::new("ucsc-menu").await?;
-        db.fluent()
+        let v: Result<(), firestore::errors::FirestoreError> = db
+            .fluent()
             .update()
             .in_col(CACHES_COLLECTION)
             .document_id("menu")
             .object(&cache)
             .execute()
-            .await?;
+            .await;
+        v?;
         Ok(())
     }
     /// Returns whether or not it refreshed. Will return error if it fails

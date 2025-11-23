@@ -125,8 +125,8 @@ impl<'a> Locations<'a> {
     pub fn iter(&self) -> Iter<Location<'a>> {
         self.locations.iter()
     }
-    // might eventually be used for diffing
-    #[cfg(unused)]
+    // TODO: might eventually be used for diffing
+    #[allow(dead_code)]
     pub fn add_meals<'b: 'a>(
         &mut self,
         htmls: impl Iterator<Item = &'b Html>,

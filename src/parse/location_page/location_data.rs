@@ -36,7 +36,8 @@ impl<'a> LocationData<'a> {
         self.menus.iter().filter_map(|x| x.as_ref())
     }
 
-    #[cfg(unused)]
+    #[allow(dead_code)]
+    // TODO: use this to remove meals that have already happened
     pub fn remove_meals_before(&mut self, date: chrono::NaiveDate) {
         for meal in &mut self.menus {
             if let Some(m) = meal {
