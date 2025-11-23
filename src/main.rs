@@ -59,7 +59,7 @@ impl Query {}
 #[derive(Clone, Copy, Debug)]
 pub struct Subscription;
 
-type Schema = RootNode<'static, Query, EmptyMutation, EmptySubscription>;
+type Schema = RootNode<Query, EmptyMutation, EmptySubscription>;
 
 #[cfg(all(target_env = "musl", target_pointer_width = "64"))]
 #[global_allocator]
