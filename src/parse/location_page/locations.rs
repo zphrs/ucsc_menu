@@ -118,11 +118,11 @@ impl<'a> Locations<'a> {
         Ok(Self { locations })
     }
 
-    pub fn iter_mut(&mut self) -> IterMut<Location<'a>> {
+    pub fn iter_mut(&mut self) -> IterMut<'_, Location<'a>> {
         self.locations.iter_mut()
     }
 
-    pub fn iter(&self) -> Iter<Location<'a>> {
+    pub fn iter(&self) -> Iter<'_, Location<'a>> {
         self.locations.iter()
     }
     // TODO: might eventually be used for diffing

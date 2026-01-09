@@ -10,8 +10,9 @@ FROM alpine:latest
 RUN apk add --no-cache musl libgcc
 ENV PORT 8080
 ENV HOST 0.0.0.0
-# ENV GOOGLE_APPLICATION_CREDENTIALS /usr/src/ucsc_menu/ucsc-menu-firebase-adminsdk-6etok-1eebb222da.json
+# ENV GOOGLE_APPLICATION_CREDENTIALS /usr/src/ucsc_menu/secrets/ucsc-menu-firebase-adminsdk-6etok-58ebd204dd.json
 COPY --from=builder /usr/local/cargo/bin/ucsc_menu /usr/local/bin/ucsc_menu
-# COPY --from=builder /usr/src/ucsc_menu/ucsc-menu-firebase-adminsdk-6etok-1eebb222da.json /usr/src/ucsc_menu/ucsc-menu-firebase-adminsdk-6etok-1eebb222da.json
+# COPY --from=builder /usr/src/ucsc_menu/secrets/ucsc-menu-firebase-adminsdk-6etok-58ebd204dd.json /usr/src/ucsc_menu/secrets/ucsc-menu-firebase-adminsdk-6etok-58ebd204dd.json
 EXPOSE 8080
+ENV RUST_LOG ucsc_menu=trace
 CMD ["ucsc_menu"]
