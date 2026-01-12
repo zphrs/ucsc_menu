@@ -27,7 +27,7 @@ use axum::{
     Extension, Router,
 };
 
-use crate::{cache::Multithreaded, fetch::make_client};
+use crate::{cache::Multithreaded, error::Error, fetch::make_client};
 use juniper::{graphql_object, EmptyMutation, EmptySubscription, RootNode};
 use juniper_axum::{graphiql, graphql, playground, ws};
 use juniper_graphql_ws::ConnectionConfig;
@@ -69,7 +69,15 @@ async fn refresh<'a>() -> Response {
     let cache = CACHE
         .get_or_init(|| async { Multithreaded::new().await.unwrap() })
         .await;
-    let _res = cache.refresh().await;
+    let res = match cache.refresh().await {
+        Ok(res) => res,
+        Err(res) => {
+            return Response::builder()
+                .status(500)
+                .body(Body::from(format!("Error while refreshing: {:?}", res)))
+                .unwrap()
+        }
+    };
     let c = cache.get().await;
     Response::builder()
         .status(201)

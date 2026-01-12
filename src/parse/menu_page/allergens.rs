@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use crate::parse::Error;
 use bitflags::bitflags;
+use futures::stream::All;
 use juniper::GraphQLEnum;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
@@ -58,6 +59,7 @@ impl AllergenInfo {
             "halal" => AllergenFlags::Halal,
             "shellfish" => AllergenFlags::Shellfish,
             "sesame" => AllergenFlags::Sesame,
+            "wheat" => AllergenFlags::Wheat,
             _ => Err(Error::HtmlParse(format!(
                 "Unknown allergen image url: {img_url}"
             )))?,
@@ -118,6 +120,7 @@ bitflags! {
         const Halal = 1 << 12;
         const Shellfish = 1 << 13;
         const Sesame = 1 << 14;
+        const Wheat = 1 << 15;
     }
 }
 
