@@ -2,7 +2,6 @@ use std::fmt::Display;
 
 use crate::parse::Error;
 use bitflags::bitflags;
-use futures::stream::All;
 use juniper::GraphQLEnum;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]

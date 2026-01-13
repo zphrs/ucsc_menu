@@ -17,7 +17,7 @@ impl<'a> StaticSelector<'a> {
     }
 }
 
-impl<'a> core::ops::Deref for StaticSelector<'a> {
+impl core::ops::Deref for StaticSelector<'_> {
     type Target = Selector;
 
     fn deref(&self) -> &Self::Target {

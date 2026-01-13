@@ -131,9 +131,9 @@ impl<'a> Section<'a> {
         let allergen_filter = |food_item: &&FoodItem<'a>| {
             let mask = food_item.get_allergen_mask();
             let mut out = true;
-            out &= contains_all_mask.map_or(true, |contains_all| mask.contains(contains_all));
-            out &= contains_any_mask.map_or(true, |contains_any| mask.intersects(contains_any));
-            out &= excludes_all_mask.map_or(true, |excludes_all| !mask.intersects(excludes_all));
+            out &= contains_all_mask.is_none_or(|contains_all| mask.contains(contains_all));
+            out &= contains_any_mask.is_none_or(|contains_any| mask.intersects(contains_any));
+            out &= excludes_all_mask.is_none_or(|excludes_all| !mask.intersects(excludes_all));
             out
         };
 
@@ -150,7 +150,7 @@ impl<'a> Section<'a> {
             .filter(|food_item| {
                 name_contains
                     .as_ref()
-                    .map_or(true, |pat| pat.is_match(food_item.name()))
+                    .is_none_or(|pat| pat.is_match(food_item.name()))
             })
             .cloned()
             .collect()

@@ -74,7 +74,7 @@ impl From<Vec<Allergens>> for AllergenFlags {
 }
 
 #[graphql_object]
-impl<'a> FoodItem<'a> {
+impl FoodItem<'_> {
     pub fn allergens(&self) -> Vec<Allergens> {
         self.allergen_info.into()
     }

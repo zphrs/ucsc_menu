@@ -27,7 +27,7 @@ use axum::{
     Extension, Router,
 };
 
-use crate::{cache::Multithreaded, error::Error, fetch::make_client};
+use crate::{cache::Multithreaded, fetch::make_client};
 use juniper::{graphql_object, EmptyMutation, EmptySubscription, RootNode};
 use juniper_axum::{graphiql, graphql, playground, ws};
 use juniper_graphql_ws::ConnectionConfig;
@@ -65,16 +65,16 @@ type Schema = RootNode<Query, EmptyMutation, EmptySubscription>;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-async fn refresh<'a>() -> Response {
+async fn refresh() -> Response {
     let cache = CACHE
         .get_or_init(|| async { Multithreaded::new().await.unwrap() })
         .await;
-    let res = match cache.refresh().await {
+    let _res = match cache.refresh().await {
         Ok(res) => res,
         Err(res) => {
             return Response::builder()
                 .status(500)
-                .body(Body::from(format!("Error while refreshing: {:?}", res)))
+                .body(Body::from(format!("Error while refreshing: {res:?}")))
                 .unwrap()
         }
     };
@@ -127,6 +127,7 @@ async fn main() {
         .layer(Extension(Arc::new(schema)))
         .layer(comression_layer);
     tokio::spawn(async move {
+        sleep(Duration::from_secs(30)).await;
         let client = make_client();
         log::info!("Forcing refresh");
         let start = Instant::now();

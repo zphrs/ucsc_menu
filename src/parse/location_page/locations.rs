@@ -35,8 +35,8 @@ impl<'a> Location<'a> {
                 .menus()
                 .filter(|x| {
                     let mut incl = true;
-                    incl &= start.map_or(true, |start_date| x.date() >= start_date);
-                    incl &= end.map_or(true, |end_date| x.date() <= end_date);
+                    incl &= start.is_none_or(|start_date| x.date() >= start_date);
+                    incl &= end.is_none_or(|end_date| x.date() <= end_date);
                     incl
                 })
                 .collect()
@@ -47,7 +47,7 @@ impl<'a> Location<'a> {
 }
 
 impl<'a> Location<'a> {
-    pub fn new(location_meta: LocationMeta) -> Self {
+    pub const fn new(location_meta: LocationMeta) -> Self {
         Self(LocationData::new(), location_meta)
     }
 

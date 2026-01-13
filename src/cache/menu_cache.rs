@@ -23,7 +23,7 @@ struct GCloudMenuCache {
 
 pub static REFRESH_INTERVAL: chrono::Duration = chrono::Duration::minutes(15);
 
-impl<'a> MenuCache<'a> {
+impl MenuCache<'_> {
     async fn from_async(cache: GCloudMenuCache) -> Self {
         if cache.data.is_empty() {
             return MenuCache {
@@ -49,7 +49,7 @@ impl<'a> MenuCache<'a> {
     }
 }
 
-impl<'a> Default for MenuCache<'a> {
+impl Default for MenuCache<'_> {
     fn default() -> Self {
         Self {
             cached_at: Utc::now(),
